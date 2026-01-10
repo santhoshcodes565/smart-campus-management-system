@@ -1,0 +1,303 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   SMARTCAMPUS+ - FEATURES PAGE STYLES (css/features.css)
+   
+   Page-specific styles for features.html
+   Includes hero, feature showcase, detailed features grid
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ========== FEATURES HERO SECTION ========== */
+.features-hero {
+    padding: 6rem 5% 4rem;
+    text-align: center;
+    animation: fadeIn 1s ease;
+}
+
+.features-hero h1 {
+    font-size: 3.5rem;
+    color: #fff;
+    margin-bottom: 1rem;
+    text-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+}
+
+.features-hero p {
+    font-size: 1.3rem;
+    color: rgba(255, 255, 255, 0.9);
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* ========== FEATURE CATEGORIES ========== */
+.feature-categories {
+    padding: 3rem 5%;
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.category-btn {
+    padding: 0.8rem 2rem;
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 25px;
+    color: #fff;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.category-btn:hover,
+.category-btn.active {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: #ffd700;
+    transform: translateY(-2px);
+}
+
+/* ========== MAIN FEATURES SHOWCASE ========== */
+.main-features {
+    padding: 3rem 5%;
+}
+
+.feature-showcase {
+    max-width: 1400px;
+    margin: 0 auto 5rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    align-items: center;
+}
+
+.feature-showcase:nth-child(even) {
+    direction: rtl;
+}
+
+.feature-showcase:nth-child(even)>* {
+    direction: ltr;
+}
+
+.feature-content h2 {
+    font-size: 2.5rem;
+    color: #fff;
+    margin-bottom: 1rem;
+}
+
+.feature-content p {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.8;
+    margin-bottom: 1.5rem;
+}
+
+.feature-list {
+    list-style: none;
+    margin-top: 1.5rem;
+}
+
+.feature-list li {
+    color: rgba(255, 255, 255, 0.9);
+    padding: 0.8rem 0;
+    padding-left: 2rem;
+    position: relative;
+    font-size: 1.05rem;
+}
+
+.feature-list li::before {
+    content: '✓';
+    position: absolute;
+    left: 0;
+    color: #ffd700;
+    font-weight: bold;
+    font-size: 1.3rem;
+}
+
+.feature-visual {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(20px);
+    padding: 3rem;
+    border-radius: 30px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    min-height: 400px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 8rem;
+    transition: all 0.3s;
+}
+
+.feature-visual:hover {
+    transform: scale(1.05);
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+}
+
+/* ========== DETAILED FEATURES GRID ========== */
+.detailed-features {
+    padding: 5rem 5%;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 2rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.feature-card h3 {
+    color: #fff;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.feature-card p {
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.6;
+}
+
+.feature-icon {
+    width: 80px;
+    height: 80px;
+    font-size: 2.5rem;
+    margin-bottom: 1.5rem;
+}
+
+/* ========== COMPARISON TABLE ========== */
+.comparison-section {
+    padding: 5rem 5%;
+}
+
+.comparison-table {
+    max-width: 1200px;
+    margin: 0 auto;
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+table th {
+    background: rgba(102, 126, 234, 0.2);
+    color: #fff;
+    padding: 1.5rem;
+    text-align: left;
+    font-weight: 600;
+}
+
+table td {
+    color: rgba(255, 255, 255, 0.9);
+    padding: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+table tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* ========== CTA BUTTONS ========== */
+.cta-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 3rem;
+}
+
+/* ========== FEATURE TAGS ========== */
+.feature-tags {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+}
+
+.tag {
+    background: rgba(102, 126, 234, 0.3);
+    color: #fff;
+    padding: 0.3rem 0.8rem;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* ========== CHECK/CROSS MARKS ========== */
+.check {
+    color: #4caf50;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+.cross {
+    color: #f44336;
+    font-weight: bold;
+    font-size: 1.2rem;
+}
+
+/* ========== CTA SECTION ========== */
+.cta-section {
+    padding: 5rem 5%;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.cta-content {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.cta-content h2 {
+    font-size: 2.5rem;
+    color: #fff;
+    margin-bottom: 1rem;
+}
+
+.cta-content p {
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 2rem;
+}
+
+/* ========== FEATURES PAGE RESPONSIVE ========== */
+@media (max-width: 768px) {
+    .features-hero h1 {
+        font-size: 2.5rem;
+    }
+
+    .feature-showcase {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+    }
+
+    .feature-showcase:nth-child(even) {
+        direction: ltr;
+    }
+
+    .feature-content h2 {
+        font-size: 2rem;
+    }
+
+    .feature-visual {
+        font-size: 5rem;
+        min-height: 300px;
+    }
+
+    .features-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .comparison-table {
+        overflow-x: auto;
+    }
+
+    .cta-buttons {
+        flex-direction: column;
+    }
+
+    .cta-content h2 {
+        font-size: 2rem;
+    }
+}
