@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { adminAPI } from '../../services/api';
 import Breadcrumb from '../../components/common/Breadcrumb';
@@ -6,11 +6,15 @@ import Modal, { ConfirmModal } from '../../components/common/Modal';
 import EmptyState from '../../components/common/EmptyState';
 import Pagination from '../../components/common/Pagination';
 import { SkeletonTable } from '../../components/common/LoadingSpinner';
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiFilter, FiDownload, FiEye, FiUserX, FiUserCheck, FiKey } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiUserX, FiUserCheck, FiKey, FiLoader } from 'react-icons/fi';
 
 const ManageStudents = () => {
     const [students, setStudents] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [courses, setCourses] = useState([]);
+    const [filteredCourses, setFilteredCourses] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingCourses, setLoadingCourses] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterDept, setFilterDept] = useState('');
     const [filterYear, setFilterYear] = useState('');
@@ -32,7 +36,11 @@ const ManageStudents = () => {
         phone: '',
         rollNo: '',
         department: '',
+        departmentId: '',
+        courseId: '',
+        batch: '',
         year: 1,
+        semester: 1,
         section: '',
         course: '',
         guardianName: '',
@@ -41,40 +49,106 @@ const ManageStudents = () => {
         bloodGroup: '',
     });
 
-    const departments = ['CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'IT'];
     const years = [1, 2, 3, 4];
     const sections = ['A', 'B', 'C', 'D'];
     const bloodGroups = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 
     useEffect(() => {
         fetchStudents();
+        fetchDepartments();
+        fetchAllCourses();
     }, []);
 
     const fetchStudents = async () => {
         try {
             setLoading(true);
             const response = await adminAPI.getStudents();
-            // Extract array from response - handle both { success, data } and direct array
             const data = response.data?.data || response.data || [];
             setStudents(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error('Error fetching students:', error);
-            // Demo data
-            setStudents([
-                { _id: '1', userId: { name: 'John Doe', username: 'john', status: 'active' }, rollNo: 'CS2021001', department: 'CSE', year: 3, section: 'A', course: 'B.Tech' },
-                { _id: '2', userId: { name: 'Jane Smith', username: 'jane', status: 'active' }, rollNo: 'CS2021002', department: 'CSE', year: 3, section: 'A', course: 'B.Tech' },
-                { _id: '3', userId: { name: 'Mike Johnson', username: 'mike', status: 'inactive' }, rollNo: 'EC2021001', department: 'ECE', year: 2, section: 'B', course: 'B.Tech' },
-                { _id: '4', userId: { name: 'Sarah Williams', username: 'sarah', status: 'active' }, rollNo: 'ME2021001', department: 'MECH', year: 4, section: 'A', course: 'B.Tech' },
-                { _id: '5', userId: { name: 'Chris Brown', username: 'chris', status: 'active' }, rollNo: 'EE2021001', department: 'EEE', year: 1, section: 'C', course: 'B.Tech' },
-            ]);
+            setStudents([]);
         } finally {
             setLoading(false);
         }
     };
 
+    const fetchDepartments = async () => {
+        try {
+            const response = await adminAPI.getDepartments({ status: 'active' });
+            const data = response.data?.data || response.data || [];
+            setDepartments(Array.isArray(data) ? data : []);
+        } catch (error) {
+            console.error('Error fetching departments:', error);
+            setDepartments([]);
+        }
+    };
+
+    const fetchAllCourses = async () => {
+        try {
+            const response = await adminAPI.getCourses({ status: 'active' });
+            const data = response.data?.data || response.data || [];
+            setCourses(Array.isArray(data) ? data : []);
+        } catch (error) {
+            console.error('Error fetching courses:', error);
+            setCourses([]);
+        }
+    };
+
+    // Fetch courses by department - for the modal form
+    const fetchCoursesByDepartment = useCallback(async (departmentId) => {
+        if (!departmentId) {
+            setFilteredCourses([]);
+            return;
+        }
+
+        try {
+            setLoadingCourses(true);
+            const response = await adminAPI.getCourses({ departmentId, status: 'active' });
+            const data = response.data?.data || response.data || [];
+            setFilteredCourses(Array.isArray(data) ? data : []);
+        } catch (error) {
+            console.error('Error fetching courses by department:', error);
+            setFilteredCourses([]);
+        } finally {
+            setLoadingCourses(false);
+        }
+    }, []);
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    // Handle department change in form - fetch courses for that department
+    const handleDepartmentChange = (e) => {
+        const departmentId = e.target.value;
+        const dept = departments.find(d => d._id === departmentId);
+
+        setFormData(prev => ({
+            ...prev,
+            departmentId,
+            department: dept?.code || '',
+            courseId: '', // Reset course when department changes
+        }));
+
+        if (departmentId) {
+            fetchCoursesByDepartment(departmentId);
+        } else {
+            setFilteredCourses([]);
+        }
+    };
+
+    // Handle course change - auto-set course name
+    const handleCourseChange = (e) => {
+        const courseId = e.target.value;
+        const course = filteredCourses.find(c => c._id === courseId);
+
+        setFormData(prev => ({
+            ...prev,
+            courseId,
+            course: course?.name || prev.course,
+        }));
     };
 
     const handleSubmit = async (e) => {
@@ -82,11 +156,17 @@ const ManageStudents = () => {
         setIsSubmitting(true);
 
         try {
+            const payload = {
+                ...formData,
+                year: parseInt(formData.year),
+                semester: parseInt(formData.semester),
+            };
+
             if (selectedStudent) {
-                await adminAPI.updateStudent(selectedStudent._id, formData);
+                await adminAPI.updateStudent(selectedStudent._id, payload);
                 toast.success('Student updated successfully');
             } else {
-                await adminAPI.createStudent(formData);
+                await adminAPI.createStudent(payload);
                 toast.success('Student created successfully');
             }
             fetchStudents();
@@ -98,18 +178,29 @@ const ManageStudents = () => {
         }
     };
 
-    const handleEdit = (student) => {
+    const handleEdit = async (student) => {
         setSelectedStudent(student);
+
+        // Fetch courses for this department if assigned
+        const deptId = student.departmentId?._id || '';
+        if (deptId) {
+            await fetchCoursesByDepartment(deptId);
+        }
+
         setFormData({
             name: student.userId?.name || '',
             username: student.userId?.username || '',
             password: '',
             phone: student.userId?.phone || '',
             rollNo: student.rollNo || '',
-            department: student.department || student.userId?.department || '',
+            department: student.userId?.department || student.departmentId?.code || '',
+            departmentId: student.departmentId?._id || '',
+            courseId: student.courseId?._id || '',
+            batch: student.batch || '',
             year: student.year || 1,
+            semester: student.semester || 1,
             section: student.section || '',
-            course: student.course || '',
+            course: student.course || student.courseId?.name || '',
             guardianName: student.guardianName || '',
             guardianPhone: student.guardianPhone || '',
             address: student.address || '',
@@ -170,19 +261,21 @@ const ManageStudents = () => {
     const handleCloseModal = () => {
         setShowModal(false);
         setSelectedStudent(null);
+        setFilteredCourses([]);
         setFormData({
             name: '', username: '', password: '', phone: '', rollNo: '', department: '',
-            year: 1, section: '', course: '', guardianName: '', guardianPhone: '', address: '', bloodGroup: ''
+            departmentId: '', courseId: '', batch: '',
+            year: 1, semester: 1, section: '', course: '', guardianName: '', guardianPhone: '', address: '', bloodGroup: ''
         });
     };
 
-    // Filter students - ensure students is always an array
+    // Filter students
     const filteredStudents = (Array.isArray(students) ? students : []).filter(student => {
         const matchesSearch =
             student.userId?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             student.rollNo?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             student.userId?.username?.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesDept = !filterDept || (student.department || student.userId?.department) === filterDept;
+        const matchesDept = !filterDept || student.departmentId?._id === filterDept;
         const matchesYear = !filterYear || student.year === parseInt(filterYear);
         return matchesSearch && matchesDept && matchesYear;
     });
@@ -194,6 +287,13 @@ const ManageStudents = () => {
         currentPage * itemsPerPage
     );
 
+    // Generate batch options (last 10 years to next 10 years)
+    const currentYear = new Date().getFullYear();
+    const batchOptions = [];
+    for (let i = currentYear - 5; i <= currentYear + 5; i++) {
+        batchOptions.push(`${i}-${i + 4}`);
+    }
+
     return (
         <div className="animate-fade-in">
             <Breadcrumb />
@@ -202,7 +302,9 @@ const ManageStudents = () => {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-secondary-800">Manage Students</h1>
-                    <p className="text-secondary-500 mt-1">Total Students Created: <span className="font-semibold text-primary-600">{students.length}</span></p>
+                    <p className="text-secondary-500 mt-1">
+                        Total Students: <span className="font-semibold text-primary-600">{students.length}</span>
+                    </p>
                 </div>
                 <button onClick={() => setShowModal(true)} className="btn-primary mt-4 md:mt-0">
                     <FiPlus size={18} />
@@ -217,7 +319,7 @@ const ManageStudents = () => {
                         <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={18} />
                         <input
                             type="text"
-                            placeholder="Search by name, email, or roll number..."
+                            placeholder="Search by name, roll no, or username..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="input pl-10"
@@ -226,27 +328,23 @@ const ManageStudents = () => {
                     <select
                         value={filterDept}
                         onChange={(e) => setFilterDept(e.target.value)}
-                        className="input w-full md:w-40"
+                        className="input w-full md:w-48"
                     >
                         <option value="">All Departments</option>
                         {departments.map(dept => (
-                            <option key={dept} value={dept}>{dept}</option>
+                            <option key={dept._id} value={dept._id}>{dept.name}</option>
                         ))}
                     </select>
                     <select
                         value={filterYear}
                         onChange={(e) => setFilterYear(e.target.value)}
-                        className="input w-full md:w-32"
+                        className="input w-full md:w-36"
                     >
                         <option value="">All Years</option>
                         {years.map(year => (
                             <option key={year} value={year}>Year {year}</option>
                         ))}
                     </select>
-                    <button className="btn-secondary">
-                        <FiDownload size={18} />
-                        Export
-                    </button>
                 </div>
             </div>
 
@@ -265,10 +363,13 @@ const ManageStudents = () => {
                     <table className="table">
                         <thead>
                             <tr>
-                                <th>Student</th>
                                 <th>Roll No</th>
+                                <th>Name</th>
                                 <th>Department</th>
-                                <th>Year / Section</th>
+                                <th>Course</th>
+                                <th>Year / Sem</th>
+                                <th>Section</th>
+                                <th>Batch</th>
                                 <th>Status</th>
                                 <th>Actions</th>
                             </tr>
@@ -276,23 +377,33 @@ const ManageStudents = () => {
                         <tbody>
                             {paginatedStudents.map((student) => (
                                 <tr key={student._id}>
+                                    <td className="font-semibold text-primary-600">{student.rollNo}</td>
                                     <td>
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-semibold">
-                                                {student.userId?.name?.charAt(0) || 'S'}
-                                            </div>
-                                            <div>
-                                                <p className="font-medium text-secondary-800">{student.userId?.name}</p>
-                                                <p className="text-sm text-secondary-500">{student.userId?.email}</p>
-                                            </div>
+                                        <div>
+                                            <p className="font-medium text-secondary-800">{student.userId?.name}</p>
+                                            <p className="text-sm text-secondary-500">@{student.userId?.username}</p>
                                         </div>
                                     </td>
-                                    <td className="font-medium">{student.rollNo}</td>
-                                    <td>{student.department || student.userId?.department}</td>
-                                    <td>{student.year} / {student.section}</td>
+                                    <td>
+                                        <span className="badge badge-secondary">
+                                            {student.departmentId?.code || student.userId?.department || 'N/A'}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span className="badge badge-primary">
+                                            {student.courseId?.code || student.course || 'N/A'}
+                                        </span>
+                                    </td>
+                                    <td className="text-center">
+                                        Y{student.year} / S{student.semester}
+                                    </td>
+                                    <td className="text-center">{student.section}</td>
+                                    <td>
+                                        {student.batch || <span className="text-secondary-400">-</span>}
+                                    </td>
                                     <td>
                                         <span className={`badge ${student.userId?.status === 'active' ? 'badge-success' : 'badge-danger'}`}>
-                                            {student.userId?.status || 'active'}
+                                            {student.userId?.status}
                                         </span>
                                     </td>
                                     <td>
@@ -351,6 +462,7 @@ const ManageStudents = () => {
                 size="lg"
             >
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* Basic Info */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="form-group">
                             <label className="label">Full Name *</label>
@@ -409,76 +521,133 @@ const ManageStudents = () => {
                                 required
                             />
                         </div>
-                        <div className="form-group">
-                            <label className="label">Department *</label>
-                            <select
-                                name="department"
-                                value={formData.department}
-                                onChange={handleChange}
-                                className="input"
-                                required
-                            >
-                                <option value="">Select Department</option>
-                                {departments.map(dept => (
-                                    <option key={dept} value={dept}>{dept}</option>
-                                ))}
-                            </select>
+                    </div>
+
+                    {/* Academic Assignment - Department → Course Chain */}
+                    <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+                        <p className="text-sm text-secondary-600 font-medium">🎓 Academic Assignment</p>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Department Selection */}
+                            <div className="form-group">
+                                <label className="label">Department *</label>
+                                <select
+                                    name="departmentId"
+                                    value={formData.departmentId}
+                                    onChange={handleDepartmentChange}
+                                    className="input"
+                                    required
+                                >
+                                    <option value="">Select Department</option>
+                                    {departments.map(dept => (
+                                        <option key={dept._id} value={dept._id}>
+                                            {dept.name} ({dept.code})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Course Selection (dependent on department) */}
+                            <div className="form-group">
+                                <label className="label">
+                                    Course
+                                    {loadingCourses && <FiLoader className="inline-block ml-2 animate-spin" size={14} />}
+                                </label>
+                                <select
+                                    name="courseId"
+                                    value={formData.courseId}
+                                    onChange={handleCourseChange}
+                                    className={`input ${!formData.departmentId ? 'opacity-50' : ''}`}
+                                    disabled={!formData.departmentId || loadingCourses}
+                                >
+                                    <option value="">
+                                        {!formData.departmentId
+                                            ? 'Select Department First'
+                                            : loadingCourses
+                                                ? 'Loading...'
+                                                : filteredCourses.length === 0
+                                                    ? 'No courses available'
+                                                    : 'Select Course'
+                                        }
+                                    </option>
+                                    {filteredCourses.map(course => (
+                                        <option key={course._id} value={course._id}>
+                                            {course.name} ({course.code})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
-                        <div className="form-group">
-                            <label className="label">Year *</label>
-                            <select
-                                name="year"
-                                value={formData.year}
-                                onChange={handleChange}
-                                className="input"
-                                required
-                            >
-                                {years.map(year => (
-                                    <option key={year} value={year}>Year {year}</option>
-                                ))}
-                            </select>
+
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                            {/* Batch */}
+                            <div className="form-group">
+                                <label className="label">Batch</label>
+                                <select
+                                    name="batch"
+                                    value={formData.batch}
+                                    onChange={handleChange}
+                                    className="input"
+                                >
+                                    <option value="">Select Batch</option>
+                                    {batchOptions.map(batch => (
+                                        <option key={batch} value={batch}>{batch}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Year */}
+                            <div className="form-group">
+                                <label className="label">Year *</label>
+                                <select
+                                    name="year"
+                                    value={formData.year}
+                                    onChange={handleChange}
+                                    className="input"
+                                    required
+                                >
+                                    {years.map(year => (
+                                        <option key={year} value={year}>Year {year}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Semester */}
+                            <div className="form-group">
+                                <label className="label">Semester</label>
+                                <select
+                                    name="semester"
+                                    value={formData.semester}
+                                    onChange={handleChange}
+                                    className="input"
+                                >
+                                    {[1, 2, 3, 4, 5, 6, 7, 8].map(sem => (
+                                        <option key={sem} value={sem}>Semester {sem}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Section */}
+                            <div className="form-group">
+                                <label className="label">Section *</label>
+                                <select
+                                    name="section"
+                                    value={formData.section}
+                                    onChange={handleChange}
+                                    className="input"
+                                    required
+                                >
+                                    <option value="">Section</option>
+                                    {sections.map(sec => (
+                                        <option key={sec} value={sec}>{sec}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
-                        <div className="form-group">
-                            <label className="label">Section *</label>
-                            <select
-                                name="section"
-                                value={formData.section}
-                                onChange={handleChange}
-                                className="input"
-                                required
-                            >
-                                <option value="">Select Section</option>
-                                {sections.map(sec => (
-                                    <option key={sec} value={sec}>{sec}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div className="form-group">
-                            <label className="label">Course *</label>
-                            <input
-                                type="text"
-                                name="course"
-                                value={formData.course}
-                                onChange={handleChange}
-                                className="input"
-                                placeholder="e.g., B.Tech"
-                                required
-                            />
-                        </div>
-                        <div className="form-group">
-                            <label className="label">Blood Group</label>
-                            <select
-                                name="bloodGroup"
-                                value={formData.bloodGroup}
-                                onChange={handleChange}
-                                className="input"
-                            >
-                                <option value="">Select Blood Group</option>
-                                {bloodGroups.map(bg => (
-                                    <option key={bg} value={bg}>{bg}</option>
-                                ))}
-                            </select>
-                        </div>
+                    </div>
+
+                    {/* Guardian & Additional Info */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="form-group">
                             <label className="label">Guardian Name</label>
                             <input
@@ -499,17 +668,32 @@ const ManageStudents = () => {
                                 className="input"
                             />
                         </div>
+                        <div className="form-group">
+                            <label className="label">Blood Group</label>
+                            <select
+                                name="bloodGroup"
+                                value={formData.bloodGroup}
+                                onChange={handleChange}
+                                className="input"
+                            >
+                                <option value="">Select</option>
+                                {bloodGroups.map(bg => (
+                                    <option key={bg} value={bg}>{bg}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="form-group">
+                            <label className="label">Address</label>
+                            <input
+                                type="text"
+                                name="address"
+                                value={formData.address}
+                                onChange={handleChange}
+                                className="input"
+                            />
+                        </div>
                     </div>
-                    <div className="form-group">
-                        <label className="label">Address</label>
-                        <textarea
-                            name="address"
-                            value={formData.address}
-                            onChange={handleChange}
-                            className="input"
-                            rows={2}
-                        />
-                    </div>
+
                     <div className="flex justify-end gap-3 pt-4">
                         <button type="button" onClick={handleCloseModal} className="btn-secondary">
                             Cancel
@@ -521,18 +705,7 @@ const ManageStudents = () => {
                 </form>
             </Modal>
 
-            {/* Delete Confirmation Modal */}
-            <ConfirmModal
-                isOpen={showDeleteModal}
-                onClose={() => setShowDeleteModal(false)}
-                onConfirm={handleDelete}
-                title="Delete Student"
-                message={`Are you sure you want to delete ${selectedStudent?.userId?.name}? This action cannot be undone.`}
-                confirmText="Delete"
-                isLoading={isSubmitting}
-            />
-
-            {/* Reset Password Modal */}
+            {/* Password Reset Modal */}
             <Modal
                 isOpen={showPasswordModal}
                 onClose={() => { setShowPasswordModal(false); setNewPassword(''); setConfirmPassword(''); }}
@@ -541,24 +714,23 @@ const ManageStudents = () => {
             >
                 <div className="space-y-4">
                     <div className="form-group">
-                        <label className="label">New Password *</label>
+                        <label className="label">New Password</label>
                         <input
                             type="password"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                             className="input"
-                            placeholder="Enter new password"
                             minLength={6}
+                            placeholder="Minimum 6 characters"
                         />
                     </div>
                     <div className="form-group">
-                        <label className="label">Confirm Password *</label>
+                        <label className="label">Confirm Password</label>
                         <input
                             type="password"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             className="input"
-                            placeholder="Confirm new password"
                         />
                     </div>
                     <div className="flex justify-end gap-3 pt-4">
@@ -572,13 +744,24 @@ const ManageStudents = () => {
                         <button
                             onClick={handleResetPassword}
                             className="btn-primary"
-                            disabled={isSubmitting || !newPassword || !confirmPassword}
+                            disabled={isSubmitting}
                         >
                             {isSubmitting ? 'Resetting...' : 'Reset Password'}
                         </button>
                     </div>
                 </div>
             </Modal>
+
+            {/* Delete Confirmation Modal */}
+            <ConfirmModal
+                isOpen={showDeleteModal}
+                onClose={() => setShowDeleteModal(false)}
+                onConfirm={handleDelete}
+                title="Delete Student"
+                message={`Are you sure you want to delete "${selectedStudent?.userId?.name}"? This will also delete all associated records (attendance, marks, fees).`}
+                confirmText="Delete"
+                isLoading={isSubmitting}
+            />
         </div>
     );
 };

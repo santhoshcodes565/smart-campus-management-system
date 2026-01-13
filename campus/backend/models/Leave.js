@@ -11,6 +11,12 @@ const leaveSchema = new mongoose.Schema({
         enum: ['student', 'faculty'],
         required: true
     },
+    // Module 8: Request type extension
+    requestType: {
+        type: String,
+        enum: ['leave', 'od', 'certificate', 'general'],
+        default: 'leave'
+    },
     leaveType: {
         type: String,
         required: true,

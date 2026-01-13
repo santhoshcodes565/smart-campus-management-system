@@ -224,6 +224,85 @@ const getLeaveRequests = async (req, res, next) => {
     }
 };
 
+// ==================== MODULE 5: Student Dashboard Extension ====================
+
+// @desc    Get student enrollment details
+// @route   GET /api/student/enrollment
+// @access  Student
+const getMyEnrollment = async (req, res, next) => {
+    try {
+        const student = await Student.findOne({ userId: req.user._id })
+            .populate('userId', 'name email phone department')
+            .populate('departmentId', 'name code')
+            .populate('courseId', 'name code totalSemesters');
+
+        if (!student) {
+            return errorResponse(res, 404, 'Student not found');
+        }
+
+        return successResponse(res, 200, 'Enrollment retrieved', {
+            student: {
+                rollNo: student.rollNo,
+                year: student.year,
+                semester: student.semester,
+                section: student.section,
+                batch: student.batch
+            },
+            department: student.departmentId,
+            course: student.courseId,
+            user: student.userId
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Get student dashboard statistics
+// @route   GET /api/student/dashboard-stats
+// @access  Student
+const getDashboardStats = async (req, res, next) => {
+    try {
+        const student = await Student.findOne({ userId: req.user._id });
+        if (!student) {
+            return errorResponse(res, 404, 'Student not found');
+        }
+
+        // Get attendance percentage
+        const attendance = await Attendance.find({ studentId: student._id });
+        const totalAttendance = attendance.length;
+        const presentCount = attendance.filter(a => a.status === 'present' || a.status === 'late').length;
+        const attendancePercentage = totalAttendance > 0 ? ((presentCount / totalAttendance) * 100).toFixed(1) : 0;
+
+        // Get pending fees
+        const Fee = require('../models/Fee');
+        const fees = await Fee.find({ studentId: student._id });
+        const totalFees = fees.reduce((sum, f) => sum + f.amount, 0);
+        const paidFees = fees.reduce((sum, f) => sum + f.paidAmount, 0);
+        const pendingFees = totalFees - paidFees;
+
+        // Get marks count
+        const marksCount = await Marks.countDocuments({ studentId: student._id });
+
+        // Get pending leave requests count
+        const pendingLeaves = await Leave.countDocuments({
+            applicantId: req.user._id,
+            status: 'pending'
+        });
+
+        return successResponse(res, 200, 'Dashboard stats retrieved', {
+            attendancePercentage: parseFloat(attendancePercentage),
+            totalClasses: totalAttendance,
+            pendingFees,
+            marksCount,
+            pendingLeaves,
+            year: student.year,
+            semester: student.semester
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     getProfile,
     getTimetable,
@@ -233,5 +312,8 @@ module.exports = {
     getTransport,
     getNotices,
     applyLeave,
-    getLeaveRequests
+    getLeaveRequests,
+    getMyEnrollment,
+    getDashboardStats
 };
+

@@ -63,6 +63,13 @@ export const studentAPI = {
     applyLeave: (data) => api.post('/student/leave', data),
     getLeaves: () => api.get('/student/leaves'),
     getDashboard: () => api.get('/student/dashboard'),
+
+    // Online Exam System
+    getOnlineExams: () => api.get('/student/online-exams'),
+    getExamForAttempt: (examId) => api.get(`/student/online-exams/${examId}`),
+    startExam: (examId) => api.post(`/student/online-exams/${examId}/start`),
+    submitExam: (examId, data) => api.post(`/student/online-exams/${examId}/submit`, data),
+    getOnlineExamResults: () => api.get('/student/online-exams/results'),
 };
 
 // Faculty API
@@ -81,11 +88,53 @@ export const facultyAPI = {
     updateLeaveStatus: (id, status) => api.put(`/faculty/leave-requests/${id}`, { status }),
     postNotice: (data) => api.post('/faculty/notices', data),
     getNotices: () => api.get('/faculty/notices'),
+
+    // Online Exam System
+    getOnlineExams: () => api.get('/faculty/online-exams'),
+    createOnlineExam: (data) => api.post('/faculty/online-exams', data),
+    updateOnlineExam: (id, data) => api.put(`/faculty/online-exams/${id}`, data),
+    publishOnlineExam: (id) => api.put(`/faculty/online-exams/${id}/publish`),
+    getExamQuestions: (examId) => api.get(`/faculty/online-exams/${examId}/questions`),
+    addExamQuestion: (examId, data) => api.post(`/faculty/online-exams/${examId}/questions`, data),
+    deleteExamQuestion: (examId, questionId) => api.delete(`/faculty/online-exams/${examId}/questions/${questionId}`),
+    getExamResults: (examId) => api.get(`/faculty/online-exams/${examId}/results`),
+    evaluateExam: (examId, data) => api.put(`/faculty/online-exams/${examId}/evaluate`, data),
 };
 
 // Admin API
 export const adminAPI = {
     getDashboard: () => api.get('/admin/dashboard'),
+
+    // ==================== ACADEMIC MASTER MANAGEMENT ====================
+
+    // Departments
+    getDepartments: (params) => api.get('/admin/departments', { params }),
+    getDepartment: (id) => api.get(`/admin/departments/${id}`),
+    createDepartment: (data) => api.post('/admin/departments', data),
+    updateDepartment: (id, data) => api.put(`/admin/departments/${id}`, data),
+    deleteDepartment: (id) => api.delete(`/admin/departments/${id}`),
+    toggleDepartmentStatus: (id) => api.put(`/admin/departments/${id}/toggle-status`),
+    deactivateDepartment: (id) => api.put(`/admin/departments/${id}/deactivate`),
+    activateDepartment: (id) => api.put(`/admin/departments/${id}/activate`),
+
+    // Courses
+    getCourses: (params) => api.get('/admin/courses', { params }),
+    getCourse: (id) => api.get(`/admin/courses/${id}`),
+    createCourse: (data) => api.post('/admin/courses', data),
+    updateCourse: (id, data) => api.put(`/admin/courses/${id}`, data),
+    deleteCourse: (id) => api.delete(`/admin/courses/${id}`),
+    toggleCourseStatus: (id) => api.put(`/admin/courses/${id}/toggle-status`),
+
+    // Subjects
+    getSubjects: (params) => api.get('/admin/subjects', { params }),
+    getSubject: (id) => api.get(`/admin/subjects/${id}`),
+    createSubject: (data) => api.post('/admin/subjects', data),
+    updateSubject: (id, data) => api.put(`/admin/subjects/${id}`, data),
+    deleteSubject: (id) => api.delete(`/admin/subjects/${id}`),
+    toggleSubjectStatus: (id) => api.put(`/admin/subjects/${id}/toggle-status`),
+    assignFacultyToSubject: (id, facultyId) => api.put(`/admin/subjects/${id}/assign-faculty`, { facultyId }),
+
+    // ==================== EXISTING MANAGEMENT ====================
 
     // Students
     getStudents: () => api.get('/admin/students'),

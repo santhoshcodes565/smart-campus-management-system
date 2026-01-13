@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { adminAPI } from '../../services/api';
 import Breadcrumb from '../../components/common/Breadcrumb';
@@ -6,11 +6,15 @@ import Modal, { ConfirmModal } from '../../components/common/Modal';
 import EmptyState from '../../components/common/EmptyState';
 import Pagination from '../../components/common/Pagination';
 import { SkeletonTable } from '../../components/common/LoadingSpinner';
-import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiDownload, FiKey } from 'react-icons/fi';
+import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiKey, FiLoader } from 'react-icons/fi';
 
 const ManageFaculty = () => {
     const [faculty, setFaculty] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [subjects, setSubjects] = useState([]);
+    const [filteredSubjects, setFilteredSubjects] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadingSubjects, setLoadingSubjects] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterDept, setFilterDept] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
@@ -31,49 +35,121 @@ const ManageFaculty = () => {
         phone: '',
         employeeId: '',
         department: '',
+        departmentId: '',
         designation: '',
-        subjects: [],
-        classes: [],
+        subjectIds: [],
+        classIds: [],
+        subjects: [], // Legacy field
         qualification: '',
         experience: '',
     });
 
-    const departments = ['CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'IT'];
-    const designations = ['Professor', 'Associate Professor', 'Assistant Professor', 'Lecturer'];
-    const subjectOptions = ['Mathematics', 'Physics', 'Chemistry', 'Data Structures', 'Algorithms', 'Database', 'Networks', 'Operating Systems', 'Machine Learning', 'Web Development'];
+    const designations = ['Professor', 'Associate Professor', 'Assistant Professor', 'Lecturer', 'Lab Assistant'];
 
     useEffect(() => {
         fetchFaculty();
+        fetchDepartments();
+        fetchAllSubjects();
     }, []);
 
     const fetchFaculty = async () => {
         try {
             setLoading(true);
             const response = await adminAPI.getFaculty();
-            // Extract array from response - handle both { success, data } and direct array
             const data = response.data?.data || response.data || [];
             setFaculty(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error('Error fetching faculty:', error);
-            // Demo data
-            setFaculty([
-                { _id: '1', userId: { name: 'Dr. Robert Smith', username: 'robert', status: 'active', department: 'CSE' }, employeeId: 'FAC001', designation: 'Professor', subjects: ['Data Structures', 'Algorithms'] },
-                { _id: '2', userId: { name: 'Prof. Emily Davis', username: 'emily', status: 'active', department: 'ECE' }, employeeId: 'FAC002', designation: 'Associate Professor', subjects: ['Electronics', 'Circuits'] },
-                { _id: '3', userId: { name: 'Dr. Michael Lee', username: 'michael', status: 'active', department: 'MECH' }, employeeId: 'FAC003', designation: 'Assistant Professor', subjects: ['Thermodynamics'] },
-            ]);
+            setFaculty([]);
         } finally {
             setLoading(false);
         }
     };
+
+    const fetchDepartments = async () => {
+        try {
+            const response = await adminAPI.getDepartments({ status: 'active' });
+            const data = response.data?.data || response.data || [];
+            setDepartments(Array.isArray(data) ? data : []);
+        } catch (error) {
+            console.error('Error fetching departments:', error);
+            setDepartments([]);
+        }
+    };
+
+    const fetchAllSubjects = async () => {
+        try {
+            const response = await adminAPI.getSubjects({ status: 'active' });
+            const data = response.data?.data || response.data || [];
+            setSubjects(Array.isArray(data) ? data : []);
+        } catch (error) {
+            console.error('Error fetching subjects:', error);
+            setSubjects([]);
+        }
+    };
+
+    // Fetch subjects by department for the form
+    const fetchSubjectsByDepartment = useCallback(async (departmentId) => {
+        if (!departmentId) {
+            setFilteredSubjects([]);
+            return;
+        }
+
+        try {
+            setLoadingSubjects(true);
+            // Get courses for this department first, then get subjects for those courses
+            const coursesRes = await adminAPI.getCourses({ departmentId, status: 'active' });
+            const courses = coursesRes.data?.data || coursesRes.data || [];
+
+            // Gather all subjects from all courses
+            let allSubjects = [];
+            for (const course of courses) {
+                const subjectsRes = await adminAPI.getSubjects({ courseId: course._id, status: 'active' });
+                const subjs = subjectsRes.data?.data || subjectsRes.data || [];
+                allSubjects = [...allSubjects, ...subjs];
+            }
+
+            // Remove duplicates by _id
+            const uniqueSubjects = allSubjects.filter((subj, idx, self) =>
+                idx === self.findIndex(s => s._id === subj._id)
+            );
+            setFilteredSubjects(uniqueSubjects);
+        } catch (error) {
+            console.error('Error fetching subjects:', error);
+            setFilteredSubjects([]);
+        } finally {
+            setLoadingSubjects(false);
+        }
+    }, []);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
-    const handleSubjectChange = (e) => {
+    // Handle department change - fetch subjects for that department
+    const handleDepartmentChange = (e) => {
+        const departmentId = e.target.value;
+        const dept = departments.find(d => d._id === departmentId);
+
+        setFormData(prev => ({
+            ...prev,
+            departmentId,
+            department: dept?.code || '',
+            subjectIds: [], // Reset subjects when department changes
+        }));
+
+        if (departmentId) {
+            fetchSubjectsByDepartment(departmentId);
+        } else {
+            setFilteredSubjects([]);
+        }
+    };
+
+    // Handle multi-select for subjects
+    const handleSubjectIdsChange = (e) => {
         const selected = Array.from(e.target.selectedOptions, option => option.value);
-        setFormData(prev => ({ ...prev, subjects: selected }));
+        setFormData(prev => ({ ...prev, subjectIds: selected }));
     };
 
     const handleSubmit = async (e) => {
@@ -81,11 +157,16 @@ const ManageFaculty = () => {
         setIsSubmitting(true);
 
         try {
+            const payload = {
+                ...formData,
+                experience: parseInt(formData.experience) || 0,
+            };
+
             if (selectedFaculty) {
-                await adminAPI.updateFaculty(selectedFaculty._id, formData);
+                await adminAPI.updateFaculty(selectedFaculty._id, payload);
                 toast.success('Faculty updated successfully');
             } else {
-                await adminAPI.createFaculty(formData);
+                await adminAPI.createFaculty(payload);
                 toast.success('Faculty created successfully');
             }
             fetchFaculty();
@@ -97,18 +178,27 @@ const ManageFaculty = () => {
         }
     };
 
-    const handleEdit = (member) => {
+    const handleEdit = async (member) => {
         setSelectedFaculty(member);
+
+        // Fetch subjects for this department if assigned
+        const deptId = member.departmentId?._id || '';
+        if (deptId) {
+            await fetchSubjectsByDepartment(deptId);
+        }
+
         setFormData({
             name: member.userId?.name || '',
             username: member.userId?.username || '',
             password: '',
             phone: member.userId?.phone || '',
             employeeId: member.employeeId || '',
-            department: member.userId?.department || '',
+            department: member.userId?.department || member.departmentId?.code || '',
+            departmentId: member.departmentId?._id || '',
             designation: member.designation || '',
+            subjectIds: member.subjectIds?.map(s => s._id || s) || [],
+            classIds: member.classIds || [],
             subjects: member.subjects || [],
-            classes: member.classes || [],
             qualification: member.qualification || '',
             experience: member.experience || '',
         });
@@ -133,9 +223,11 @@ const ManageFaculty = () => {
     const handleCloseModal = () => {
         setShowModal(false);
         setSelectedFaculty(null);
+        setFilteredSubjects([]);
         setFormData({
             name: '', username: '', password: '', phone: '', employeeId: '', department: '',
-            designation: '', subjects: [], classes: [], qualification: '', experience: ''
+            departmentId: '', designation: '', subjectIds: [], classIds: [], subjects: [],
+            qualification: '', experience: ''
         });
     };
 
@@ -163,13 +255,13 @@ const ManageFaculty = () => {
         }
     };
 
-    // Filter faculty - ensure faculty is always an array
+    // Filter faculty
     const filteredFaculty = (Array.isArray(faculty) ? faculty : []).filter(member => {
         const matchesSearch =
             member.userId?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             member.employeeId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
             member.userId?.username?.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesDept = !filterDept || member.userId?.department === filterDept;
+        const matchesDept = !filterDept || member.departmentId?._id === filterDept;
         return matchesSearch && matchesDept;
     });
 
@@ -186,7 +278,7 @@ const ManageFaculty = () => {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
                 <div>
                     <h1 className="text-2xl font-bold text-secondary-800">Manage Faculty</h1>
-                    <p className="text-secondary-500 mt-1">Total Faculty Created: <span className="font-semibold text-primary-600">{faculty.length}</span></p>
+                    <p className="text-secondary-500 mt-1">Total Faculty: <span className="font-semibold text-primary-600">{faculty.length}</span></p>
                 </div>
                 <button onClick={() => setShowModal(true)} className="btn-primary mt-4 md:mt-0">
                     <FiPlus size={18} />
@@ -201,7 +293,7 @@ const ManageFaculty = () => {
                         <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-secondary-400" size={18} />
                         <input
                             type="text"
-                            placeholder="Search by name, email, or employee ID..."
+                            placeholder="Search by name or employee ID..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="input pl-10"
@@ -210,17 +302,13 @@ const ManageFaculty = () => {
                     <select
                         value={filterDept}
                         onChange={(e) => setFilterDept(e.target.value)}
-                        className="input w-full md:w-40"
+                        className="input w-full md:w-48"
                     >
                         <option value="">All Departments</option>
                         {departments.map(dept => (
-                            <option key={dept} value={dept}>{dept}</option>
+                            <option key={dept._id} value={dept._id}>{dept.name}</option>
                         ))}
                     </select>
-                    <button className="btn-secondary">
-                        <FiDownload size={18} />
-                        Export
-                    </button>
                 </div>
             </div>
 
@@ -244,6 +332,7 @@ const ManageFaculty = () => {
                                 <th>Department</th>
                                 <th>Designation</th>
                                 <th>Subjects</th>
+                                <th>Status</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -257,22 +346,36 @@ const ManageFaculty = () => {
                                             </div>
                                             <div>
                                                 <p className="font-medium text-secondary-800">{member.userId?.name}</p>
-                                                <p className="text-sm text-secondary-500">{member.userId?.email}</p>
+                                                <p className="text-sm text-secondary-500">@{member.userId?.username}</p>
                                             </div>
                                         </div>
                                     </td>
-                                    <td className="font-medium">{member.employeeId}</td>
-                                    <td>{member.userId?.department}</td>
+                                    <td className="font-semibold text-primary-600">{member.employeeId}</td>
+                                    <td>
+                                        <span className="badge badge-secondary">
+                                            {member.departmentId?.code || member.userId?.department || 'N/A'}
+                                        </span>
+                                    </td>
                                     <td>{member.designation}</td>
                                     <td>
                                         <div className="flex flex-wrap gap-1">
-                                            {member.subjects?.slice(0, 2).map((sub, i) => (
-                                                <span key={i} className="badge-primary text-xs">{sub}</span>
+                                            {member.subjectIds?.slice(0, 2).map((subj, i) => (
+                                                <span key={i} className="badge badge-primary text-xs">
+                                                    {typeof subj === 'object' ? subj.code : subj}
+                                                </span>
                                             ))}
-                                            {member.subjects?.length > 2 && (
-                                                <span className="badge text-xs bg-gray-100">+{member.subjects.length - 2}</span>
+                                            {member.subjectIds?.length > 2 && (
+                                                <span className="badge text-xs bg-gray-100">+{member.subjectIds.length - 2}</span>
+                                            )}
+                                            {(!member.subjectIds || member.subjectIds.length === 0) && (
+                                                <span className="text-secondary-400 text-sm">-</span>
                                             )}
                                         </div>
+                                    </td>
+                                    <td>
+                                        <span className={`badge ${member.userId?.status === 'active' ? 'badge-success' : 'badge-danger'}`}>
+                                            {member.userId?.status}
+                                        </span>
                                     </td>
                                     <td>
                                         <div className="flex items-center gap-2">
@@ -322,6 +425,7 @@ const ManageFaculty = () => {
                 size="lg"
             >
                 <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* Basic Info */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="form-group">
                             <label className="label">Full Name *</label>
@@ -380,36 +484,85 @@ const ManageFaculty = () => {
                                 required
                             />
                         </div>
-                        <div className="form-group">
-                            <label className="label">Department *</label>
-                            <select
-                                name="department"
-                                value={formData.department}
-                                onChange={handleChange}
-                                className="input"
-                                required
-                            >
-                                <option value="">Select Department</option>
-                                {departments.map(dept => (
-                                    <option key={dept} value={dept}>{dept}</option>
-                                ))}
-                            </select>
+                    </div>
+
+                    {/* Academic Assignment */}
+                    <div className="bg-gray-50 p-4 rounded-lg space-y-4">
+                        <p className="text-sm text-secondary-600 font-medium">🎓 Academic Assignment</p>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Department */}
+                            <div className="form-group">
+                                <label className="label">Department *</label>
+                                <select
+                                    name="departmentId"
+                                    value={formData.departmentId}
+                                    onChange={handleDepartmentChange}
+                                    className="input"
+                                    required
+                                >
+                                    <option value="">Select Department</option>
+                                    {departments.map(dept => (
+                                        <option key={dept._id} value={dept._id}>
+                                            {dept.name} ({dept.code})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Designation */}
+                            <div className="form-group">
+                                <label className="label">Designation *</label>
+                                <select
+                                    name="designation"
+                                    value={formData.designation}
+                                    onChange={handleChange}
+                                    className="input"
+                                    required
+                                >
+                                    <option value="">Select Designation</option>
+                                    {designations.map(des => (
+                                        <option key={des} value={des}>{des}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
+
+                        {/* Subject Assignment */}
                         <div className="form-group">
-                            <label className="label">Designation *</label>
+                            <label className="label">
+                                Assigned Subjects
+                                {loadingSubjects && <FiLoader className="inline-block ml-2 animate-spin" size={14} />}
+                            </label>
                             <select
-                                name="designation"
-                                value={formData.designation}
-                                onChange={handleChange}
-                                className="input"
-                                required
+                                multiple
+                                name="subjectIds"
+                                value={formData.subjectIds}
+                                onChange={handleSubjectIdsChange}
+                                className={`input h-32 ${!formData.departmentId ? 'opacity-50' : ''}`}
+                                disabled={!formData.departmentId || loadingSubjects}
                             >
-                                <option value="">Select Designation</option>
-                                {designations.map(des => (
-                                    <option key={des} value={des}>{des}</option>
-                                ))}
+                                {filteredSubjects.length === 0 && formData.departmentId && !loadingSubjects ? (
+                                    <option disabled>No subjects found for this department</option>
+                                ) : (
+                                    filteredSubjects.map(subj => (
+                                        <option key={subj._id} value={subj._id}>
+                                            {subj.name} ({subj.code})
+                                        </option>
+                                    ))
+                                )}
                             </select>
+                            <p className="text-xs text-secondary-500 mt-1">
+                                {!formData.departmentId
+                                    ? 'Select department first to see available subjects'
+                                    : 'Hold Ctrl/Cmd to select multiple subjects'
+                                }
+                            </p>
                         </div>
+                    </div>
+
+                    {/* Additional Info */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="form-group">
                             <label className="label">Qualification</label>
                             <input
@@ -432,22 +585,8 @@ const ManageFaculty = () => {
                                 min="0"
                             />
                         </div>
-                        <div className="form-group md:col-span-2">
-                            <label className="label">Subjects</label>
-                            <select
-                                multiple
-                                name="subjects"
-                                value={formData.subjects}
-                                onChange={handleSubjectChange}
-                                className="input h-32"
-                            >
-                                {subjectOptions.map(sub => (
-                                    <option key={sub} value={sub}>{sub}</option>
-                                ))}
-                            </select>
-                            <p className="text-xs text-secondary-500 mt-1">Hold Ctrl/Cmd to select multiple</p>
-                        </div>
                     </div>
+
                     <div className="flex justify-end gap-3 pt-4">
                         <button type="button" onClick={handleCloseModal} className="btn-secondary">
                             Cancel

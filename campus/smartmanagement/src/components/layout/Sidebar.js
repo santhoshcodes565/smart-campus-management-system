@@ -5,7 +5,8 @@ import { useApp } from '../../context/AppContext';
 import {
     FiHome, FiUsers, FiCalendar, FiDollarSign, FiTruck, FiBell,
     FiBarChart2, FiSettings, FiBook, FiClipboard, FiFileText,
-    FiCheckSquare, FiClock, FiLogOut, FiChevronLeft, FiChevronRight
+    FiCheckSquare, FiClock, FiLogOut, FiChevronLeft, FiChevronRight,
+    FiEdit3
 } from 'react-icons/fi';
 
 const Sidebar = () => {
@@ -24,6 +25,11 @@ const Sidebar = () => {
             case 'admin':
                 return [
                     { path: '/admin/dashboard', icon: FiHome, label: 'Dashboard' },
+                    // Academic Master Management
+                    { path: '/admin/departments', icon: FiBook, label: 'Departments' },
+                    { path: '/admin/courses', icon: FiFileText, label: 'Courses' },
+                    { path: '/admin/subjects', icon: FiClipboard, label: 'Subjects' },
+                    // User Management
                     { path: '/admin/students', icon: FiUsers, label: 'Manage Students' },
                     { path: '/admin/faculty', icon: FiUsers, label: 'Manage Faculty' },
                     { path: '/admin/timetable', icon: FiCalendar, label: 'Timetable' },
@@ -38,6 +44,7 @@ const Sidebar = () => {
                     { path: '/faculty/dashboard', icon: FiHome, label: 'Dashboard' },
                     { path: '/faculty/attendance', icon: FiCheckSquare, label: 'Mark Attendance' },
                     { path: '/faculty/marks', icon: FiClipboard, label: 'Upload Marks' },
+                    { path: '/faculty/online-exams', icon: FiEdit3, label: 'Online Exams' },
                     { path: '/faculty/students', icon: FiUsers, label: 'Student List' },
                     { path: '/faculty/timetable', icon: FiCalendar, label: 'Timetable' },
                     { path: '/faculty/leaves', icon: FiClock, label: 'Leave Requests' },
@@ -48,6 +55,7 @@ const Sidebar = () => {
                     { path: '/student/dashboard', icon: FiHome, label: 'Dashboard' },
                     { path: '/student/attendance', icon: FiCheckSquare, label: 'Attendance' },
                     { path: '/student/marks', icon: FiClipboard, label: 'Marks' },
+                    { path: '/student/online-exams', icon: FiEdit3, label: 'Online Exams' },
                     { path: '/student/timetable', icon: FiCalendar, label: 'Timetable' },
                     { path: '/student/fees', icon: FiDollarSign, label: 'Fee Details' },
                     { path: '/student/transport', icon: FiTruck, label: 'Transport' },

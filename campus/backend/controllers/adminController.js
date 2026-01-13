@@ -17,7 +17,11 @@ const { successResponse, errorResponse } = require('../utils/responseHandler');
 // @access  Admin
 const createStudent = async (req, res, next) => {
     try {
-        const { name, username, password, department, phone, rollNo, year, section, course, semester } = req.body;
+        const {
+            name, username, password, department, phone, rollNo,
+            year, section, course, semester,
+            departmentId, courseId, batch
+        } = req.body;
 
         // Create user first
         const user = await User.create({
@@ -29,14 +33,17 @@ const createStudent = async (req, res, next) => {
             phone
         });
 
-        // Create student profile
+        // Create student profile with academic fields
         const student = await Student.create({
             userId: user._id,
             rollNo,
             year,
             section,
             course,
-            semester: semester || 1
+            semester: semester || (year * 2 - 1), // Auto-calculate semester from year
+            departmentId: departmentId || null,
+            courseId: courseId || null,
+            batch: batch || ''
         });
 
         return successResponse(res, 201, 'Student created successfully', { user: { id: user._id, name, username }, student });
@@ -50,14 +57,17 @@ const createStudent = async (req, res, next) => {
 // @access  Admin
 const getAllStudents = async (req, res, next) => {
     try {
-        const { department, year, section, status } = req.query;
+        const { department, year, section, status, departmentId, courseId, batch } = req.query;
         let userQuery = { role: 'student' };
         let studentQuery = {};
 
         if (department) userQuery.department = department;
         if (status) userQuery.status = status;
-        if (year) studentQuery.year = year;
+        if (year) studentQuery.year = parseInt(year);
         if (section) studentQuery.section = section;
+        if (departmentId) studentQuery.departmentId = departmentId;
+        if (courseId) studentQuery.courseId = courseId;
+        if (batch) studentQuery.batch = batch;
 
         const students = await Student.find(studentQuery)
             .populate({
@@ -65,6 +75,8 @@ const getAllStudents = async (req, res, next) => {
                 match: userQuery,
                 select: 'name username phone department status createdAt'
             })
+            .populate('departmentId', 'name code')
+            .populate('courseId', 'name code totalSemesters')
             .sort({ rollNo: 1 });
 
         // Filter out nulls (where user didn't match query)
@@ -81,7 +93,10 @@ const getAllStudents = async (req, res, next) => {
 // @access  Admin
 const updateStudent = async (req, res, next) => {
     try {
-        const { name, email, department, phone, status, rollNo, year, section, course, semester } = req.body;
+        const {
+            name, email, department, phone, status, rollNo, year, section, course, semester,
+            departmentId, courseId, batch
+        } = req.body;
 
         const student = await Student.findById(req.params.id);
         if (!student) {
@@ -93,8 +108,13 @@ const updateStudent = async (req, res, next) => {
             name, email, department, phone, status
         });
 
-        // Update student data
-        Object.assign(student, { rollNo, year, section, course, semester });
+        // Update student data including new academic fields
+        Object.assign(student, {
+            rollNo, year, section, course, semester,
+            departmentId: departmentId !== undefined ? departmentId : student.departmentId,
+            courseId: courseId !== undefined ? courseId : student.courseId,
+            batch: batch !== undefined ? batch : student.batch
+        });
         await student.save();
 
         return successResponse(res, 200, 'Student updated successfully', student);
@@ -161,7 +181,10 @@ const resetPassword = async (req, res, next) => {
 // @access  Admin
 const createFaculty = async (req, res, next) => {
     try {
-        const { name, username, password, department, phone, employeeId, designation, subjects, qualification } = req.body;
+        const {
+            name, username, password, department, phone, employeeId, designation,
+            subjects, qualification, departmentId, subjectIds, classIds
+        } = req.body;
 
         const user = await User.create({
             name,
@@ -177,7 +200,10 @@ const createFaculty = async (req, res, next) => {
             employeeId,
             designation,
             subjects: subjects || [],
-            qualification
+            qualification,
+            departmentId: departmentId || null,
+            subjectIds: subjectIds || [],
+            classIds: classIds || []
         });
 
         return successResponse(res, 201, 'Faculty created successfully', { user: { id: user._id, name, username }, faculty });
@@ -191,12 +217,13 @@ const createFaculty = async (req, res, next) => {
 // @access  Admin
 const getAllFaculty = async (req, res, next) => {
     try {
-        const { department, designation } = req.query;
+        const { department, designation, departmentId } = req.query;
         let userQuery = { role: 'faculty' };
         let facultyQuery = {};
 
         if (department) userQuery.department = department;
         if (designation) facultyQuery.designation = designation;
+        if (departmentId) facultyQuery.departmentId = departmentId;
 
         const faculty = await Faculty.find(facultyQuery)
             .populate({
@@ -204,6 +231,8 @@ const getAllFaculty = async (req, res, next) => {
                 match: userQuery,
                 select: 'name username phone department status createdAt'
             })
+            .populate('departmentId', 'name code')
+            .populate('subjectIds', 'name code')
             .sort({ employeeId: 1 });
 
         const filtered = faculty.filter(f => f.userId !== null);
@@ -219,7 +248,10 @@ const getAllFaculty = async (req, res, next) => {
 // @access  Admin
 const updateFaculty = async (req, res, next) => {
     try {
-        const { name, email, department, phone, status, employeeId, designation, subjects, qualification } = req.body;
+        const {
+            name, email, department, phone, status, employeeId, designation,
+            subjects, qualification, departmentId, subjectIds, classIds
+        } = req.body;
 
         const faculty = await Faculty.findById(req.params.id);
         if (!faculty) {
@@ -227,7 +259,12 @@ const updateFaculty = async (req, res, next) => {
         }
 
         await User.findByIdAndUpdate(faculty.userId, { name, email, department, phone, status });
-        Object.assign(faculty, { employeeId, designation, subjects, qualification });
+        Object.assign(faculty, {
+            employeeId, designation, subjects, qualification,
+            departmentId: departmentId !== undefined ? departmentId : faculty.departmentId,
+            subjectIds: subjectIds !== undefined ? subjectIds : faculty.subjectIds,
+            classIds: classIds !== undefined ? classIds : faculty.classIds
+        });
         await faculty.save();
 
         return successResponse(res, 200, 'Faculty updated successfully', faculty);

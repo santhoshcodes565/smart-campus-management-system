@@ -32,6 +32,10 @@ import ManageFees from './pages/admin/ManageFees';
 import ManageTransport from './pages/admin/ManageTransport';
 import ManageNotices from './pages/admin/ManageNotices';
 import Reports from './pages/admin/Reports';
+// Academic Master Management Pages
+import ManageDepartments from './pages/admin/ManageDepartments';
+import ManageCourses from './pages/admin/ManageCourses';
+import ManageSubjects from './pages/admin/ManageSubjects';
 
 // Faculty Pages
 import FacultyDashboard from './pages/faculty/FacultyDashboard';
@@ -41,6 +45,9 @@ import StudentList from './pages/faculty/StudentList';
 import FacultyTimetable from './pages/faculty/FacultyTimetable';
 import LeaveRequests from './pages/faculty/LeaveRequests';
 import PostNotice from './pages/faculty/PostNotice';
+import FacultyExams from './pages/faculty/FacultyExams';
+import ExamQuestions from './pages/faculty/ExamQuestions';
+import FacultyExamResults from './pages/faculty/FacultyExamResults';
 
 // Student Pages
 import StudentDashboard from './pages/student/StudentDashboard';
@@ -50,6 +57,9 @@ import StudentTimetable from './pages/student/StudentTimetable';
 import FeeDetails from './pages/student/FeeDetails';
 import TransportDetails from './pages/student/TransportDetails';
 import ApplyLeave from './pages/student/ApplyLeave';
+import StudentExams from './pages/student/StudentExams';
+import TakeExam from './pages/student/TakeExam';
+import StudentResults from './pages/student/StudentResults';
 
 // Placeholder component for pages not yet created
 const ComingSoon = ({ title }) => (
@@ -91,6 +101,11 @@ function App() {
               >
                 <Route index element={<Navigate to="dashboard" replace />} />
                 <Route path="dashboard" element={<AdminDashboard />} />
+                {/* Academic Master Management */}
+                <Route path="departments" element={<ManageDepartments />} />
+                <Route path="courses" element={<ManageCourses />} />
+                <Route path="subjects" element={<ManageSubjects />} />
+                {/* User Management */}
                 <Route path="students" element={<ManageStudents />} />
                 <Route path="faculty" element={<ManageFaculty />} />
                 <Route path="timetable" element={<ManageTimetable />} />
@@ -118,6 +133,10 @@ function App() {
                 <Route path="timetable" element={<FacultyTimetable />} />
                 <Route path="leaves" element={<LeaveRequests />} />
                 <Route path="notices" element={<PostNotice />} />
+                {/* Online Exams */}
+                <Route path="online-exams" element={<FacultyExams />} />
+                <Route path="online-exams/:id/questions" element={<ExamQuestions />} />
+                <Route path="online-exams/:id/results" element={<FacultyExamResults />} />
               </Route>
 
               {/* Student Routes */}
@@ -137,6 +156,10 @@ function App() {
                 <Route path="fees" element={<FeeDetails />} />
                 <Route path="transport" element={<TransportDetails />} />
                 <Route path="leave" element={<ApplyLeave />} />
+                {/* Online Exams */}
+                <Route path="online-exams" element={<StudentExams />} />
+                <Route path="online-exams/:id" element={<TakeExam />} />
+                <Route path="online-exams/results" element={<StudentResults />} />
               </Route>
 
               {/* Catch all - redirect to home instead of login */}
