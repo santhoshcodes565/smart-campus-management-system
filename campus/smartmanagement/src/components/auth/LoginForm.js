@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { authAPI } from '../../services/api';
 import { ButtonLoader } from '../common/LoadingSpinner';
 import { FiUser, FiLock, FiEye, FiEyeOff } from 'react-icons/fi';
+import { getErrorMessage } from '../../utils/errorNormalizer';
 
 const LoginForm = () => {
     const navigate = useNavigate();
@@ -58,7 +59,7 @@ const LoginForm = () => {
             toast.success(`Welcome back, ${user.name}!`);
             navigate(redirectUrl || from, { replace: true });
         } catch (error) {
-            const message = error.response?.data?.error || 'Login failed. Please try again.';
+            const message = getErrorMessage(error, 'Login failed. Please try again.');
             toast.error(message);
             setErrors({ general: message });
         } finally {

@@ -7,6 +7,7 @@ import EmptyState from '../../components/common/EmptyState';
 import Modal from '../../components/common/Modal';
 import { SkeletonTable } from '../../components/common/LoadingSpinner';
 import { FiPlus, FiEdit2, FiTrash2, FiCheckCircle, FiList, FiArrowLeft } from 'react-icons/fi';
+import { getErrorMessage } from '../../utils/errorNormalizer';
 
 const ExamQuestions = () => {
     const { id: examId } = useParams();
@@ -85,7 +86,7 @@ const ExamQuestions = () => {
             resetForm();
             fetchQuestions();
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Failed to add question');
+            toast.error(getErrorMessage(error, 'Failed to add question'));
         } finally {
             setSaving(false);
         }
@@ -98,7 +99,7 @@ const ExamQuestions = () => {
             toast.success('Question deleted');
             fetchQuestions();
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Failed to delete question');
+            toast.error(getErrorMessage(error, 'Failed to delete question'));
         }
     };
 
@@ -150,7 +151,8 @@ const ExamQuestions = () => {
                     icon={FiList}
                     title="No questions added"
                     description="Add questions to this exam"
-                    action={exam?.status === 'draft' ? { label: 'Add Question', onClick: () => setShowModal(true) } : null}
+                    action={exam?.status === 'draft' ? () => setShowModal(true) : null}
+                    actionLabel="Add Question"
                 />
             ) : (
                 <div className="space-y-4">
@@ -184,8 +186,8 @@ const ExamQuestions = () => {
                                         <div
                                             key={optIndex}
                                             className={`p-3 rounded-lg border ${option === question.correctAnswer
-                                                    ? 'border-green-500 bg-green-50'
-                                                    : 'border-gray-200 bg-gray-50'
+                                                ? 'border-green-500 bg-green-50'
+                                                : 'border-gray-200 bg-gray-50'
                                                 }`}
                                         >
                                             <div className="flex items-center gap-2">

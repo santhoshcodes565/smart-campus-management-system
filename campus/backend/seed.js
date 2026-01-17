@@ -1,3 +1,14 @@
+/**
+ * SAFE DATABASE SEEDER
+ * 
+ * This script will ONLY run if:
+ * 1. FORCE_SEED=true environment variable is set
+ * 2. OR the database has no existing admin users
+ * 
+ * It will NEVER run automatically on backend restart.
+ * It will NEVER delete data if seed has already been completed.
+ */
+
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const dotenv = require('dotenv');
@@ -15,27 +26,79 @@ const Timetable = require('./models/Timetable');
 const Fee = require('./models/Fee');
 const Transport = require('./models/Transport');
 const Attendance = require('./models/Attendance');
+const SystemSettings = require('./models/SystemSettings');
 
 // Connect to database
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/smartcampus');
 
+const SAFETY_CHECKS = async () => {
+    console.log('\n🔒 Running safety checks...\n');
+
+    // Check 1: Environment variable override
+    if (process.env.FORCE_SEED === 'true') {
+        console.log('⚠️  FORCE_SEED=true detected. Proceeding with DESTRUCTIVE seed...');
+        console.log('⚠️  This will DELETE ALL existing data!');
+        console.log('⚠️  You have 5 seconds to cancel (Ctrl+C)...\n');
+        await new Promise(resolve => setTimeout(resolve, 5000));
+        return { canProceed: true, isDestructive: true };
+    }
+
+    // Check 2: Check if admin exists (first-time setup detection)
+    const adminCount = await User.countDocuments({ role: 'admin' });
+    if (adminCount === 0) {
+        console.log('✅ No admin users found. This appears to be a fresh database.');
+        console.log('✅ Proceeding with initial seed...\n');
+        return { canProceed: true, isDestructive: false };
+    }
+
+    // Check 3: Check SystemSettings for seed lock
+    const seedCompleted = await SystemSettings.getSetting('seedCompleted', false);
+    if (seedCompleted) {
+        console.log('🔒 SEED LOCK ACTIVE: Database has already been seeded.');
+        console.log('🔒 To force re-seed, run: FORCE_SEED=true node seed.js');
+        console.log('🔒 Existing data will NOT be modified.');
+        return { canProceed: false, isDestructive: false };
+    }
+
+    // Default: Don't proceed if data exists
+    console.log(`⚠️  Found ${adminCount} admin user(s). Database appears to have data.`);
+    console.log('⚠️  To force re-seed, run: FORCE_SEED=true node seed.js');
+    return { canProceed: false, isDestructive: false };
+};
+
 const seedData = async () => {
     try {
-        console.log('🌱 Starting database seed...');
+        console.log('╔══════════════════════════════════════════════════════╗');
+        console.log('║     SMART CAMPUS - SAFE DATABASE SEEDER              ║');
+        console.log('╚══════════════════════════════════════════════════════╝\n');
 
-        // Clear existing data
-        await User.deleteMany({});
-        await Student.deleteMany({});
-        await Faculty.deleteMany({});
-        await Admin.deleteMany({});
-        await Notice.deleteMany({});
-        await Timetable.deleteMany({});
-        await Fee.deleteMany({});
-        await Transport.deleteMany({});
-        await Attendance.deleteMany({});
-        console.log('✅ Cleared existing data');
+        // Run safety checks
+        const { canProceed, isDestructive } = await SAFETY_CHECKS();
+
+        if (!canProceed) {
+            console.log('\n❌ Seed aborted. No changes made to the database.\n');
+            process.exit(0);
+        }
+
+        console.log('🌱 Starting database seed...\n');
+
+        // Only clear data if this is a destructive seed (FORCE_SEED=true)
+        if (isDestructive) {
+            console.log('🗑️  Clearing existing data...');
+            await User.deleteMany({});
+            await Student.deleteMany({});
+            await Faculty.deleteMany({});
+            await Admin.deleteMany({});
+            await Notice.deleteMany({});
+            await Timetable.deleteMany({});
+            await Fee.deleteMany({});
+            await Transport.deleteMany({});
+            await Attendance.deleteMany({});
+            console.log('✅ Cleared existing data\n');
+        }
 
         // Create Admin User
+        console.log('👤 Creating Admin user...');
         const adminUser = await User.create({
             name: 'Super Admin',
             username: 'admin',
@@ -51,18 +114,10 @@ const seedData = async () => {
             permissions: ['manage_students', 'manage_faculty', 'manage_timetable', 'manage_transport', 'manage_fees', 'manage_notices', 'view_reports', 'system_settings'],
             isSuperAdmin: true
         });
-        console.log('✅ Admin created: admin / admin123');
+        console.log('✅ Admin created: admin / admin123\n');
 
         // Create Faculty Users
-        const facultyData = [
-            { name: 'Dr. Robert Smith', username: 'robert', department: 'CSE', designation: 'Professor', subjects: ['Data Structures', 'Algorithms'], employeeId: 'FAC001' },
-            { name: 'Prof. Emily Davis', username: 'emily', department: 'CSE', designation: 'Associate Professor', subjects: ['Database Systems', 'Computer Networks'], employeeId: 'FAC002' },
-            { name: 'Dr. Michael Lee', username: 'michael', department: 'CSE', designation: 'Assistant Professor', subjects: ['Operating Systems', 'Machine Learning'], employeeId: 'FAC003' },
-            { name: 'Prof. Sarah Johnson', username: 'sarah', department: 'ECE', designation: 'Professor', subjects: ['Electronics', 'Digital Circuits'], employeeId: 'FAC004' },
-            { name: 'Dr. James Wilson', username: 'james', department: 'MECH', designation: 'Associate Professor', subjects: ['Thermodynamics', 'Mechanics'], employeeId: 'FAC005' },
-        ];
-
-        // Create main faculty user for demo
+        console.log('👨‍🏫 Creating Faculty users...');
         const mainFacultyUser = await User.create({
             name: 'Dr. Robert Smith',
             username: 'faculty',
@@ -78,13 +133,18 @@ const seedData = async () => {
             employeeId: 'FAC000',
             designation: 'Professor',
             subjects: ['Data Structures', 'Algorithms'],
-            classes: ['CSE-3-A', 'CSE-3-B'],
+            // Note: subjectIds and classIds will be assigned by admin
             qualification: 'Ph.D in Computer Science',
             experience: 15
         });
         console.log('✅ Demo Faculty created: faculty / faculty123');
 
-        // Create other faculty
+        // Create additional faculty
+        const facultyData = [
+            { name: 'Prof. Emily Davis', username: 'emily', department: 'CSE', designation: 'Associate Professor', subjects: ['Database Systems', 'Computer Networks'], employeeId: 'FAC002' },
+            { name: 'Dr. Michael Lee', username: 'michael', department: 'CSE', designation: 'Assistant Professor', subjects: ['Operating Systems', 'Machine Learning'], employeeId: 'FAC003' },
+        ];
+
         for (const fac of facultyData) {
             const user = await User.create({
                 name: fac.name,
@@ -100,23 +160,14 @@ const seedData = async () => {
                 employeeId: fac.employeeId,
                 designation: fac.designation,
                 subjects: fac.subjects,
-                classes: [],
                 qualification: 'Ph.D',
                 experience: Math.floor(Math.random() * 15) + 5
             });
         }
-        console.log('✅ Created 5 additional faculty members');
+        console.log('✅ Created 2 additional faculty members\n');
 
         // Create Student Users
-        const sections = ['A', 'B', 'C'];
-        const years = [1, 2, 3, 4];
-        const studentNames = [
-            'John Doe', 'Jane Smith', 'Mike Johnson', 'Sarah Williams', 'Chris Brown',
-            'Emily Davis', 'David Wilson', 'Lisa Anderson', 'Mark Taylor', 'Amy Thomas',
-            'Kevin Martinez', 'Jessica Garcia', 'Brian Lee', 'Michelle Robinson', 'Steven Clark'
-        ];
-
-        // Create main student user for demo
+        console.log('🎓 Creating Student users...');
         const mainStudentUser = await User.create({
             name: 'John Doe',
             username: 'student',
@@ -127,7 +178,7 @@ const seedData = async () => {
             status: 'active'
         });
 
-        const mainStudent = await Student.create({
+        await Student.create({
             userId: mainStudentUser._id,
             rollNo: 'CS2021001',
             year: 3,
@@ -141,172 +192,88 @@ const seedData = async () => {
         });
         console.log('✅ Demo Student created: student / student123');
 
-        // Create other students
-        const students = [];
-        let rollCounter = 2;
-        for (let year = 1; year <= 4; year++) {
-            for (const section of sections) {
-                for (let i = 0; i < 10; i++) {
-                    const name = studentNames[Math.floor(Math.random() * studentNames.length)] + ' ' + rollCounter;
-                    const user = await User.create({
-                        name: name,
-                        username: `student${rollCounter}`,
-                        password: 'password123',
-                        role: 'student',
-                        department: 'CSE',
-                        status: 'active'
-                    });
-
-                    const student = await Student.create({
-                        userId: user._id,
-                        rollNo: `CS202${year}${section}${String(rollCounter).padStart(3, '0')}`,
-                        year: year,
-                        section: section,
-                        course: 'B.Tech',
-                        semester: year * 2 - 1,
-                        guardianName: `Guardian ${rollCounter}`,
-                        guardianPhone: `98765${String(rollCounter).padStart(5, '0')}`,
-                        bloodGroup: ['A+', 'B+', 'O+', 'AB+'][Math.floor(Math.random() * 4)]
-                    });
-                    students.push(student);
-                    rollCounter++;
-                }
-            }
-        }
-        console.log(`✅ Created ${students.length} additional students`);
-
-        // Create Transport Routes
-        const transportRoutes = [
-            {
-                busNumber: 'BUS-001',
-                routeName: 'City Center Route',
-                driver: { name: 'Ramesh Kumar', phone: '9876543220', licenseNo: 'DL-001' },
-                capacity: 40,
-                stops: [
-                    { stopName: 'Railway Station', arrivalTime: '07:30', order: 1 },
-                    { stopName: 'Bus Stand', arrivalTime: '07:45', order: 2 },
-                    { stopName: 'Market', arrivalTime: '08:00', order: 3 },
-                    { stopName: 'College Gate', arrivalTime: '08:15', order: 4 }
-                ],
-                departureTime: '07:30',
-                returnTime: '17:00',
-                isActive: true
-            },
-            {
-                busNumber: 'BUS-002',
-                routeName: 'Suburb Route',
-                driver: { name: 'Suresh Singh', phone: '9876543221', licenseNo: 'DL-002' },
-                capacity: 50,
-                stops: [
-                    { stopName: 'Township', arrivalTime: '07:00', order: 1 },
-                    { stopName: 'Mall', arrivalTime: '07:20', order: 2 },
-                    { stopName: 'Hospital', arrivalTime: '07:40', order: 3 },
-                    { stopName: 'College Gate', arrivalTime: '08:00', order: 4 }
-                ],
-                departureTime: '07:00',
-                returnTime: '17:30',
-                isActive: true
-            },
-            {
-                busNumber: 'BUS-003',
-                routeName: 'Highway Route',
-                driver: { name: 'Mahesh Verma', phone: '9876543222', licenseNo: 'DL-003' },
-                capacity: 45,
-                stops: [
-                    { stopName: 'Highway Junction', arrivalTime: '07:45', order: 1 },
-                    { stopName: 'Tech Park', arrivalTime: '08:00', order: 2 },
-                    { stopName: 'College Gate', arrivalTime: '08:20', order: 3 }
-                ],
-                departureTime: '07:45',
-                returnTime: '17:15',
-                isActive: true
-            },
-        ];
-
-        for (const route of transportRoutes) {
-            await Transport.create(route);
-        }
-        console.log('✅ Created 3 transport routes');
-
-        // Create Timetable entries
-        const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-        const subjects = ['Data Structures', 'Algorithms', 'Database Systems', 'Operating Systems', 'Computer Networks', 'Machine Learning'];
-        const rooms = ['CS-101', 'CS-102', 'CS-103', 'CS-104', 'Lab-1', 'Lab-2'];
-
-        for (const day of days) {
-            const slots = [];
-            for (let period = 1; period <= 6; period++) {
-                slots.push({
-                    startTime: `${8 + period}:00`,
-                    endTime: `${9 + period}:00`,
-                    subject: subjects[period - 1],
-                    room: rooms[period - 1],
-                    type: period >= 5 ? 'lab' : 'lecture'
-                });
-            }
-
-            await Timetable.create({
-                day: day,
+        // Create a few more students
+        const studentNames = ['Jane Smith', 'Mike Johnson'];
+        for (let i = 0; i < studentNames.length; i++) {
+            const user = await User.create({
+                name: studentNames[i],
+                username: `student${i + 2}`,
+                password: 'password123',
+                role: 'student',
                 department: 'CSE',
+                status: 'active'
+            });
+
+            await Student.create({
+                userId: user._id,
+                rollNo: `CS202100${i + 2}`,
                 year: 3,
                 section: 'A',
-                slots: slots
+                course: 'B.Tech',
+                semester: 5,
+                bloodGroup: ['A+', 'B+', 'O+'][i % 3]
             });
         }
-        console.log('✅ Created timetable entries');
+        console.log('✅ Created 2 additional students\n');
+
+        // Create Transport Routes
+        console.log('🚌 Creating Transport routes...');
+        await Transport.create({
+            busNumber: 'BUS-001',
+            routeName: 'City Center Route',
+            driver: { name: 'Ramesh Kumar', phone: '9876543220', licenseNo: 'DL-001' },
+            capacity: 40,
+            stops: [
+                { stopName: 'Railway Station', arrivalTime: '07:30', order: 1 },
+                { stopName: 'Bus Stand', arrivalTime: '07:45', order: 2 },
+                { stopName: 'College Gate', arrivalTime: '08:15', order: 3 }
+            ],
+            departureTime: '07:30',
+            returnTime: '17:00',
+            isActive: true
+        });
+        console.log('✅ Created 1 transport route\n');
 
         // Create Notices
-        const notices = [
-            { title: 'Mid-term Exam Schedule', content: 'Mid-term exams will be conducted from 15th to 20th January. Please check the detailed schedule on the notice board.', type: 'global', priority: 'high', targetAudience: 'students' },
-            { title: 'Republic Day Holiday', content: 'College will remain closed on 26th January for Republic Day celebrations.', type: 'global', priority: 'medium', targetAudience: 'all' },
-            { title: 'Fee Payment Reminder', content: 'Last date for fee payment is 31st January. Late fee will be applicable after the deadline.', type: 'global', priority: 'high', targetAudience: 'students' },
-            { title: 'Faculty Meeting', content: 'All faculty members are requested to attend the monthly faculty meeting on 10th January at 3 PM.', type: 'department', priority: 'medium', targetAudience: 'faculty' },
-            { title: 'Sports Day Event', content: 'Annual Sports Day will be held on 5th February. Interested students can register through the sports department.', type: 'global', priority: 'medium', targetAudience: 'all' },
-        ];
+        console.log('📢 Creating Notices...');
+        await Notice.create({
+            title: 'Welcome to Smart Campus',
+            content: 'Welcome to the Smart Campus Management System. This is a demo notice.',
+            postedBy: adminUser._id,
+            createdBy: adminUser._id,
+            createdByRole: 'admin',
+            targetAudience: 'all',
+            type: 'global',
+            priority: 'medium'
+        });
+        console.log('✅ Created 1 notice\n');
 
-        for (const notice of notices) {
-            await Notice.create({
-                ...notice,
-                postedBy: adminUser._id
-            });
-        }
-        console.log('✅ Created 5 notices');
+        // Set seed lock
+        await SystemSettings.setSetting('seedCompleted', true, 'Database initial seed completed', adminUser._id);
+        await SystemSettings.setSetting('seedDate', new Date().toISOString(), 'Date when seed was completed');
+        await SystemSettings.setSetting('seedVersion', '1.0.0', 'Seed script version');
 
-        // Create Fee Records
-        const feeTypes = ['tuition', 'hostel', 'transport', 'library', 'lab'];
-        const feeAmounts = { tuition: 75000, hostel: 25000, transport: 5000, library: 2000, lab: 5000 };
-        const statuses = ['paid', 'pending', 'overdue'];
-
-        for (let i = 0; i < 20; i++) {
-            const student = students[Math.floor(Math.random() * students.length)] || mainStudent;
-            const feeType = feeTypes[Math.floor(Math.random() * feeTypes.length)];
-
-            await Fee.create({
-                studentId: student._id,
-                amount: feeAmounts[feeType],
-                feeType: feeType,
-                semester: student.semester,
-                academicYear: '2024-25',
-                dueDate: new Date(Date.now() + (Math.random() * 30 - 15) * 24 * 60 * 60 * 1000),
-                status: statuses[Math.floor(Math.random() * statuses.length)],
-                paidDate: Math.random() > 0.5 ? new Date() : null
-            });
-        }
-        console.log('✅ Created 20 fee records');
-
-        console.log('\n🎉 Database seeding completed successfully!');
-        console.log('\n📋 Login Credentials:');
-        console.log('┌─────────────┬─────────────────────┬─────────────┐');
-        console.log('│ Role        │ Username            │ Password    │');
-        console.log('├─────────────┼─────────────────────┼─────────────┤');
-        console.log('│ Admin       │ admin               │ admin123    │');
-        console.log('│ Faculty     │ faculty             │ faculty123  │');
-        console.log('│ Student     │ student             │ student123  │');
-        console.log('└─────────────┴─────────────────────┴─────────────┘');
+        console.log('╔══════════════════════════════════════════════════════╗');
+        console.log('║     🎉 DATABASE SEEDING COMPLETED SUCCESSFULLY!      ║');
+        console.log('╠══════════════════════════════════════════════════════╣');
+        console.log('║                                                      ║');
+        console.log('║  📋 Login Credentials:                               ║');
+        console.log('║  ┌─────────────┬─────────────────┬──────────────┐    ║');
+        console.log('║  │ Role        │ Username        │ Password     │    ║');
+        console.log('║  ├─────────────┼─────────────────┼──────────────┤    ║');
+        console.log('║  │ Admin       │ admin           │ admin123     │    ║');
+        console.log('║  │ Faculty     │ faculty         │ faculty123   │    ║');
+        console.log('║  │ Student     │ student         │ student123   │    ║');
+        console.log('║  └─────────────┴─────────────────┴──────────────┘    ║');
+        console.log('║                                                      ║');
+        console.log('║  🔒 SEED LOCK: Enabled                               ║');
+        console.log('║  Future restarts will NOT modify this data.          ║');
+        console.log('║                                                      ║');
+        console.log('╚══════════════════════════════════════════════════════╝\n');
 
         process.exit(0);
     } catch (error) {
-        console.error('❌ Error seeding database:', error);
+        console.error('\n❌ Error seeding database:', error);
         process.exit(1);
     }
 };

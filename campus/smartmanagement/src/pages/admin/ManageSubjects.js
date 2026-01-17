@@ -7,6 +7,7 @@ import EmptyState from '../../components/common/EmptyState';
 import Pagination from '../../components/common/Pagination';
 import { SkeletonTable } from '../../components/common/LoadingSpinner';
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiToggleLeft, FiToggleRight, FiUser, FiLoader } from 'react-icons/fi';
+import { getErrorMessage } from '../../utils/errorNormalizer';
 
 const ManageSubjects = () => {
     const [subjects, setSubjects] = useState([]);
@@ -191,7 +192,7 @@ const ManageSubjects = () => {
             fetchSubjects();
             handleCloseModal();
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Operation failed');
+            toast.error(getErrorMessage(error, 'Operation failed'));
         } finally {
             setIsSubmitting(false);
         }
@@ -232,7 +233,7 @@ const ManageSubjects = () => {
             setShowDeleteModal(false);
             setSelectedSubject(null);
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Delete failed');
+            toast.error(getErrorMessage(error, 'Delete failed'));
         } finally {
             setIsSubmitting(false);
         }
@@ -258,7 +259,7 @@ const ManageSubjects = () => {
             setSelectedSubject(null);
             setSelectedFacultyId('');
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Assignment failed');
+            toast.error(getErrorMessage(error, 'Assignment failed'));
         } finally {
             setIsSubmitting(false);
         }

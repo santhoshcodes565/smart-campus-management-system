@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
-import { facultyAPI, adminAPI } from '../../services/api';
+import { facultyAPI } from '../../services/api';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import EmptyState from '../../components/common/EmptyState';
 import Modal from '../../components/common/Modal';
 import { SkeletonTable } from '../../components/common/LoadingSpinner';
 import { FiPlus, FiEdit2, FiTrash2, FiEye, FiList, FiUsers, FiClock, FiCheckCircle, FiSend } from 'react-icons/fi';
+import { getErrorMessage } from '../../utils/errorNormalizer';
 
 const FacultyExams = () => {
     const navigate = useNavigate();
@@ -56,9 +57,9 @@ const FacultyExams = () => {
     const fetchDropdownData = async () => {
         try {
             const [subjectsRes, coursesRes, deptRes] = await Promise.all([
-                adminAPI.getSubjects(),
-                adminAPI.getCourses(),
-                adminAPI.getDepartments()
+                facultyAPI.getSubjects(),
+                facultyAPI.getCourses(),
+                facultyAPI.getDepartments()
             ]);
             if (subjectsRes.data.success) setSubjects(subjectsRes.data.data);
             if (coursesRes.data.success) setCourses(coursesRes.data.data);
@@ -88,7 +89,7 @@ const FacultyExams = () => {
             resetForm();
             fetchExams();
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Failed to save exam');
+            toast.error(getErrorMessage(error, 'Failed to save exam'));
         } finally {
             setSaving(false);
         }
@@ -101,7 +102,18 @@ const FacultyExams = () => {
             toast.success('Exam published successfully');
             fetchExams();
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Failed to publish exam');
+            toast.error(getErrorMessage(error, 'Failed to publish exam'));
+        }
+    };
+
+    const handleDelete = async (examId) => {
+        if (!window.confirm('Are you sure you want to delete this exam? This action cannot be undone.')) return;
+        try {
+            await facultyAPI.deleteOnlineExam(examId);
+            toast.success('Exam deleted successfully');
+            fetchExams();
+        } catch (error) {
+            toast.error(getErrorMessage(error, 'Failed to delete exam'));
         }
     };
 
@@ -190,7 +202,8 @@ const FacultyExams = () => {
                     icon={FiList}
                     title="No exams found"
                     description="Create your first online exam to get started"
-                    action={{ label: 'Create Exam', onClick: () => setShowModal(true) }}
+                    action={() => setShowModal(true)}
+                    actionLabel="Create Exam"
                 />
             ) : (
                 <div className="card overflow-hidden">
@@ -246,6 +259,13 @@ const FacultyExams = () => {
                                                             title="Publish"
                                                         >
                                                             <FiSend size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDelete(exam._id)}
+                                                            className="btn-icon bg-red-50 text-red-600 hover:bg-red-100"
+                                                            title="Delete"
+                                                        >
+                                                            <FiTrash2 size={16} />
                                                         </button>
                                                     </>
                                                 )}

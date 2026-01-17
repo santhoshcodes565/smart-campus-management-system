@@ -4,6 +4,7 @@ import Breadcrumb from '../../components/common/Breadcrumb';
 import { toast } from 'react-toastify';
 import { FiBell, FiSend, FiEye, FiTrash2, FiClock } from 'react-icons/fi';
 import Modal, { ConfirmModal } from '../../components/common/Modal';
+import { getErrorMessage } from '../../utils/errorNormalizer';
 
 const PostNotice = () => {
     const [notices, setNotices] = useState([]);
@@ -58,7 +59,7 @@ const PostNotice = () => {
                 fetchNotices();
             }
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Failed to post notice');
+            toast.error(getErrorMessage(error, 'Failed to post notice'));
         } finally {
             setIsSubmitting(false);
         }
@@ -167,7 +168,7 @@ const PostNotice = () => {
                                 <div className="flex justify-between items-start mb-3">
                                     <div className="flex items-center gap-2">
                                         <span className={`badge ${notice.priority === 'high' ? 'badge-danger' :
-                                                notice.priority === 'normal' ? 'badge-primary' : 'bg-gray-100 text-gray-600'
+                                            notice.priority === 'normal' ? 'badge-primary' : 'bg-gray-100 text-gray-600'
                                             }`}>
                                             {notice.priority}
                                         </span>

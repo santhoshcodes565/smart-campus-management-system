@@ -5,6 +5,7 @@ import { studentAPI } from '../../services/api';
 import EmptyState from '../../components/common/EmptyState';
 import { SkeletonTable } from '../../components/common/LoadingSpinner';
 import { FiClock, FiChevronLeft, FiChevronRight, FiSend, FiAlertTriangle, FiCheckCircle, FiAlertCircle, FiSave } from 'react-icons/fi';
+import { getErrorMessage } from '../../utils/errorNormalizer';
 
 const TakeExam = () => {
     const { id: examId } = useParams();
@@ -146,7 +147,7 @@ const TakeExam = () => {
             }
         } catch (error) {
             console.error('Error fetching exam:', error);
-            toast.error(error.response?.data?.error || 'Failed to load exam');
+            toast.error(getErrorMessage(error, 'Failed to load exam'));
             navigate('/student/online-exams');
         } finally {
             setLoading(false);
@@ -164,7 +165,7 @@ const TakeExam = () => {
                 toast.success('Exam started! Good luck!');
             }
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Failed to start exam');
+            toast.error(getErrorMessage(error, 'Failed to start exam'));
         }
     };
 
@@ -174,13 +175,26 @@ const TakeExam = () => {
 
     const saveProgress = async () => {
         if (isSaving) return;
+        if (Object.keys(answersRef.current).length === 0) return;
+
         setIsSaving(true);
         try {
-            // Just update local storage as backup - actual save happens on submit
+            // Format answers for backend
+            const formattedAnswers = Object.entries(answersRef.current).map(([questionId, answer]) => ({
+                questionId,
+                answer
+            }));
+
+            // Save to backend (primary)
+            await studentAPI.saveExamAnswers(examId, { answers: formattedAnswers });
+
+            // Also save to localStorage as backup
             localStorage.setItem(`exam_${examId}_answers`, JSON.stringify(answersRef.current));
             setLastSaved(new Date());
         } catch (error) {
             console.error('Auto-save failed:', error);
+            // Still save to localStorage even if backend fails
+            localStorage.setItem(`exam_${examId}_answers`, JSON.stringify(answersRef.current));
         } finally {
             setIsSaving(false);
         }
@@ -213,7 +227,7 @@ const TakeExam = () => {
                 navigate('/student/online-exams/results');
             }
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Failed to submit exam');
+            toast.error(getErrorMessage(error, 'Failed to submit exam'));
         } finally {
             setSubmitting(false);
             setShowConfirmModal(false);
@@ -343,10 +357,10 @@ const TakeExam = () => {
                                 key={q._id}
                                 onClick={() => setCurrentQuestion(idx)}
                                 className={`w-10 h-10 rounded-lg font-medium text-sm transition-colors ${idx === currentQuestion
-                                        ? 'bg-primary-600 text-white'
-                                        : answers[q._id]
-                                            ? 'bg-green-100 text-green-700 border-2 border-green-400'
-                                            : 'bg-gray-100 text-secondary-600 hover:bg-gray-200'
+                                    ? 'bg-primary-600 text-white'
+                                    : answers[q._id]
+                                        ? 'bg-green-100 text-green-700 border-2 border-green-400'
+                                        : 'bg-gray-100 text-secondary-600 hover:bg-gray-200'
                                     }`}
                             >
                                 {idx + 1}
@@ -381,8 +395,8 @@ const TakeExam = () => {
                                     <label
                                         key={idx}
                                         className={`flex items-center p-4 rounded-lg border-2 cursor-pointer transition-colors ${answers[currentQ._id] === option
-                                                ? 'border-primary-500 bg-primary-50'
-                                                : 'border-gray-200 hover:border-gray-300 bg-white'
+                                            ? 'border-primary-500 bg-primary-50'
+                                            : 'border-gray-200 hover:border-gray-300 bg-white'
                                             }`}
                                     >
                                         <input

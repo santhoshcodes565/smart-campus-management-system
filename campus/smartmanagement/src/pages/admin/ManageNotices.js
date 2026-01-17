@@ -7,6 +7,7 @@ import Modal, { ConfirmModal } from '../../components/common/Modal';
 import EmptyState from '../../components/common/EmptyState';
 import { SkeletonTable } from '../../components/common/LoadingSpinner';
 import { FiPlus, FiEdit2, FiTrash2, FiSend, FiSearch, FiBell, FiUsers, FiGlobe } from 'react-icons/fi';
+import { getErrorMessage } from '../../utils/errorNormalizer';
 
 const ManageNotices = () => {
     const [notices, setNotices] = useState([]);
@@ -84,7 +85,7 @@ const ManageNotices = () => {
             fetchNotices();
             handleCloseModal();
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Operation failed');
+            toast.error(getErrorMessage(error, 'Operation failed'));
         } finally {
             setIsSubmitting(false);
         }
@@ -113,7 +114,7 @@ const ManageNotices = () => {
             setShowDeleteModal(false);
             setSelectedNotice(null);
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Delete failed');
+            toast.error(getErrorMessage(error, 'Delete failed'));
         } finally {
             setIsSubmitting(false);
         }

@@ -299,11 +299,11 @@ const evaluateDescriptive = async (req, res, next) => {
         }
 
         // Update evaluations
-        for (const eval of evaluations) {
-            const answerIndex = attempt.answers.findIndex(a => a.questionId.toString() === eval.questionId);
+        for (const evaluation of evaluations) {
+            const answerIndex = attempt.answers.findIndex(a => a.questionId.toString() === evaluation.questionId);
             if (answerIndex !== -1) {
-                attempt.answers[answerIndex].marksObtained = eval.marksObtained;
-                attempt.answers[answerIndex].feedback = eval.feedback || '';
+                attempt.answers[answerIndex].marksObtained = evaluation.marksObtained;
+                attempt.answers[answerIndex].feedback = evaluation.feedback || '';
                 attempt.answers[answerIndex].evaluated = true;
             }
         }
@@ -704,6 +704,142 @@ const getExamAnalytics = async (req, res, next) => {
     }
 };
 
+// ==================== NEW: AUTO-SAVE ANSWERS ====================
+
+// @desc    Auto-save answers (no submission)
+// @route   PUT /api/student/online-exams/:id/save
+// @access  Student
+const saveAnswers = async (req, res, next) => {
+    try {
+        const { answers } = req.body;
+        // answers: [{ questionId, answer }]
+
+        const student = await Student.findOne({ userId: req.user._id });
+        if (!student) {
+            return errorResponse(res, 404, 'Student not found');
+        }
+
+        const exam = await Exam.findById(req.params.id);
+        if (!exam) {
+            return errorResponse(res, 404, 'Exam not found');
+        }
+
+        // Check time window
+        const now = new Date();
+        if (now > new Date(exam.endTime)) {
+            return errorResponse(res, 400, 'Exam has ended');
+        }
+
+        let attempt = await ExamAttempt.findOne({ examId: exam._id, studentId: student._id });
+        if (!attempt) {
+            return errorResponse(res, 400, 'No exam attempt found. Please start the exam first.');
+        }
+        if (attempt.status !== 'in_progress') {
+            return errorResponse(res, 400, 'Exam already submitted');
+        }
+
+        // Update answers without submitting
+        const processedAnswers = answers.map(ans => {
+            // Find existing answer or create new
+            const existingAnswer = attempt.answers.find(a => a.questionId.toString() === ans.questionId);
+            return {
+                questionId: ans.questionId,
+                answer: ans.answer,
+                marksObtained: existingAnswer?.marksObtained || 0,
+                evaluated: existingAnswer?.evaluated || false,
+                feedback: existingAnswer?.feedback || ''
+            };
+        });
+
+        attempt.answers = processedAnswers;
+        await attempt.save();
+
+        return successResponse(res, 200, 'Answers saved successfully', {
+            savedAt: new Date(),
+            answersCount: processedAnswers.length
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ==================== NEW: DELETE EXAM (FACULTY) ====================
+
+// @desc    Delete exam (draft only)
+// @route   DELETE /api/faculty/online-exams/:id
+// @access  Faculty
+const deleteExam = async (req, res, next) => {
+    try {
+        const faculty = await Faculty.findOne({ userId: req.user._id });
+        if (!faculty) {
+            return errorResponse(res, 404, 'Faculty not found');
+        }
+
+        const exam = await Exam.findOne({ _id: req.params.id, facultyId: faculty._id });
+        if (!exam) {
+            return errorResponse(res, 404, 'Exam not found or not authorized');
+        }
+
+        if (exam.status !== 'draft') {
+            return errorResponse(res, 400, 'Only draft exams can be deleted');
+        }
+
+        // Delete all questions for this exam
+        await Question.deleteMany({ examId: exam._id });
+
+        // Delete the exam
+        await Exam.findByIdAndDelete(exam._id);
+
+        return successResponse(res, 200, 'Exam deleted successfully');
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ==================== NEW: UPDATE QUESTION (FACULTY) ====================
+
+// @desc    Update a question
+// @route   PUT /api/faculty/online-exams/:id/questions/:questionId
+// @access  Faculty
+const updateQuestion = async (req, res, next) => {
+    try {
+        const faculty = await Faculty.findOne({ userId: req.user._id });
+        if (!faculty) {
+            return errorResponse(res, 404, 'Faculty not found');
+        }
+
+        const exam = await Exam.findOne({ _id: req.params.id, facultyId: faculty._id });
+        if (!exam) {
+            return errorResponse(res, 404, 'Exam not found or not authorized');
+        }
+
+        if (exam.status !== 'draft') {
+            return errorResponse(res, 400, 'Cannot update questions in a published exam');
+        }
+
+        const question = await Question.findOne({ _id: req.params.questionId, examId: exam._id });
+        if (!question) {
+            return errorResponse(res, 404, 'Question not found');
+        }
+
+        const { questionType, questionText, options, correctAnswer, marks, explanation } = req.body;
+
+        // Update fields
+        if (questionType) question.questionType = questionType;
+        if (questionText) question.questionText = questionText;
+        if (questionType === 'mcq' && options) question.options = options;
+        if (questionType === 'mcq' && correctAnswer !== undefined) question.correctAnswer = correctAnswer;
+        if (marks !== undefined) question.marks = marks;
+        if (explanation !== undefined) question.explanation = explanation;
+
+        await question.save();
+
+        return successResponse(res, 200, 'Question updated successfully', question);
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     // Faculty
     createExam,
@@ -713,12 +849,15 @@ module.exports = {
     addQuestion,
     getQuestions,
     deleteQuestion,
+    updateQuestion,
+    deleteExam,
     getExamResults,
     evaluateDescriptive,
     // Student
     getAvailableExams,
     getExamForAttempt,
     startExam,
+    saveAnswers,
     submitExam,
     getStudentResults,
     // Admin

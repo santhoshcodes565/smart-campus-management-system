@@ -46,9 +46,20 @@ const StudentList = () => {
 
     const filteredStudents = students.filter(student => {
         const matchesSearch =
-            student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            student.rollNo.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesClass = selectedClass === 'all' || student.academic?.class === selectedClass;
+            student.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            student.rollNo?.toLowerCase().includes(searchTerm.toLowerCase());
+
+        // Handle class filtering - class can be object or string
+        let matchesClass = selectedClass === 'all';
+        if (!matchesClass) {
+            const studentClass = student.academic?.class;
+            if (typeof studentClass === 'object') {
+                matchesClass = studentClass?._id === selectedClass || studentClass?.name === selectedClass;
+            } else {
+                matchesClass = studentClass === selectedClass;
+            }
+        }
+
         return matchesSearch && matchesClass;
     });
 
@@ -85,7 +96,9 @@ const StudentList = () => {
                         >
                             <option value="all">All Classes</option>
                             {classes.map(c => (
-                                <option key={c} value={c}>{c}</option>
+                                <option key={c._id || c} value={c._id || c}>
+                                    {typeof c === 'object' ? `${c.name || c.department} - Year ${c.year} ${c.section || ''}` : c}
+                                </option>
                             ))}
                         </select>
                     </div>
@@ -130,7 +143,10 @@ const StudentList = () => {
                                     </td>
                                     <td>
                                         <span className="badge bg-secondary-100 text-secondary-700">
-                                            {student.academic?.class || 'N/A'}
+                                            {typeof student.academic?.class === 'object'
+                                                ? (student.academic.class.name || `${student.academic.class.department}-${student.academic.class.year}${student.academic.class.section || ''}`)
+                                                : (student.academic?.class || 'N/A')
+                                            }
                                         </span>
                                     </td>
                                     <td>

@@ -11,6 +11,18 @@ const connectDB = async () => {
             family: 4, // Use IPv4, skip trying IPv6
         });
         console.log(`MongoDB Connected: ${conn.connection.host}`);
+
+        // Run integrity check after connection (non-blocking)
+        setTimeout(async () => {
+            try {
+                const { runIntegrityCheck, verifyRestartSafety } = require('../utils/integrityChecker');
+                await verifyRestartSafety();
+                await runIntegrityCheck();
+            } catch (err) {
+                console.error('Integrity check error (non-fatal):', err.message);
+            }
+        }, 2000); // Wait 2 seconds for all models to load
+
     } catch (error) {
         console.error(`MongoDB Connection Error: ${error.message}`);
         if (error.code) {

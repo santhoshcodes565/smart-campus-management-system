@@ -1,0 +1,61 @@
+﻿≡ƒÄ» Starting Online Exam Creation Test...
+
+STEP 1: Faculty Authorization Check
+Γ£à Faculty: Dr. Robert Smith
+   Subjects: Data Structures, Algorithms
+   Classes: None assigned
+
+Using Subject: Algorithms (6964c5257e39fe9769fed385)
+Using Course: ai (6964b9c82c637ec7219c0160)
+
+STEP 2: Creating Exam (Draft)
+Γ£à Exam Created: Algorithm Fundamentals Quiz - Test
+   ID: 6968bdc06fa81a31d86da44c
+   Status: draft
+   Start: 15/1/2026, 3:45:20 pm
+   End: 15/1/2026, 4:43:20 pm
+
+STEP 3: Adding Questions
+   Γ£à Q1 Added: What is the time complexity of binary se...
+   Γ£à Q2 Added: Which data structure uses LIFO principle...
+   Γ£à Q3 Added: What is the worst-case time complexity o...
+   Γ£à Q4 Added: Which algorithm is used to find the shor...
+   Γ£à Q5 Added: What is the space complexity of merge so...
+   Total Marks: 50
+
+STEP 4: Publishing Exam
+Γ£à Exam Published! Status: published
+
+STEP 5: Student Visibility Check
+Student: John Doe
+Year: 3, Section: A
+Γ£à Visible Exams for Student: 1
+   - Algorithm Fundamentals Quiz - Test
+
+STEP 6: Simulating Student Attempt
+Γ£à Exam Started by John Doe
+   Attempt ID: 6968bdc16fa81a31d86da460
+Γ£à Exam Submitted
+   Total Score: 50/50
+   Percentage: 100%
+   Grade: A+
+
+STEP 7: Result Verification
+Faculty can see 1 attempt(s):
+   - John Doe: 50/50 (100%) - A+
+
+============================================================
+≡ƒÄë ONLINE EXAM TEST COMPLETED SUCCESSFULLY!
+============================================================
+
+Exam ID: 6968bdc06fa81a31d86da44c
+Access URL: /faculty/online-exams/6968bdc06fa81a31d86da44c/results
+
+Permissions Verified:
+  Γ£à Faculty created exam (draft)
+  Γ£à Faculty added questions
+  Γ£à Faculty published exam
+  Γ£à Student viewed and attempted exam
+  Γ£à MCQ auto-evaluated
+  Γ£à Results stored correctly
+  Γ£à Student cannot attempt again (unique constraint)

@@ -6,6 +6,7 @@ import Breadcrumb from '../../components/common/Breadcrumb';
 import Modal, { ConfirmModal } from '../../components/common/Modal';
 import { SkeletonTable } from '../../components/common/LoadingSpinner';
 import { FiPlus, FiEdit2, FiTrash2, FiCalendar, FiClock } from 'react-icons/fi';
+import { getErrorMessage } from '../../utils/errorNormalizer';
 
 const ManageTimetable = () => {
     const [timetables, setTimetables] = useState([]);
@@ -101,7 +102,7 @@ const ManageTimetable = () => {
             fetchTimetables();
             handleCloseModal();
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Operation failed');
+            toast.error(getErrorMessage(error, 'Operation failed'));
         } finally {
             setIsSubmitting(false);
         }

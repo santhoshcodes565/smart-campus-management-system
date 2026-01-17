@@ -10,7 +10,7 @@ function Loginpage() {
 
     // State for form data
     const [formData, setFormData] = useState({
-        email: '',
+        username: '',
         password: ''
     });
 
@@ -51,7 +51,7 @@ function Loginpage() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    email: formData.email,
+                    username: formData.username,
                     password: formData.password
                 })
             });
@@ -115,16 +115,16 @@ function Loginpage() {
                     )}
 
                     <form id="loginForm" onSubmit={handleSubmit}>
-                        {/* Email Field */}
+                        {/* Username Field */}
                         <div className="form-group">
-                            <label htmlFor="email">Email Address</label>
+                            <label htmlFor="username">Username</label>
                             <input
-                                type="email"
-                                id="email"
-                                name="email"
-                                placeholder="your.email@example.com"
+                                type="text"
+                                id="username"
+                                name="username"
+                                placeholder="Enter your username"
                                 required
-                                value={formData.email}
+                                value={formData.username}
                                 onChange={handleChange}
                             />
                         </div>

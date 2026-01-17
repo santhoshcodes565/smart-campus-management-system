@@ -151,6 +151,8 @@ const deleteStudent = async (req, res, next) => {
 // @desc    Reset user password
 // @route   PUT /api/admin/users/:id/reset-password
 // @access  Admin
+// ISOLATED: This function ONLY modifies the password field, never touching
+//           subjectIds, permissions, classIds, or any other data
 const resetPassword = async (req, res, next) => {
     try {
         const { newPassword } = req.body;
@@ -164,12 +166,17 @@ const resetPassword = async (req, res, next) => {
             return errorResponse(res, 404, 'User not found');
         }
 
-        // Update password (will be hashed by pre-save hook)
+        // ISOLATED UPDATE: Only password field is modified
+        // This uses user.save() which only updates the password field
+        // Pre-save hook will hash the password
         user.password = newPassword;
         await user.save();
 
+        console.log(`[PASSWORD RESET] User ${user._id} (${user.username}) - Password reset successfully. No other fields modified.`);
+
         return successResponse(res, 200, 'Password reset successfully');
     } catch (error) {
+        console.error(`[PASSWORD RESET] Failed for user ${req.params.id}:`, error.message);
         next(error);
     }
 };
@@ -248,6 +255,8 @@ const getAllFaculty = async (req, res, next) => {
 // @access  Admin
 const updateFaculty = async (req, res, next) => {
     try {
+        const FacultyAssignmentAudit = require('../models/FacultyAssignmentAudit');
+
         const {
             name, email, department, phone, status, employeeId, designation,
             subjects, qualification, departmentId, subjectIds, classIds
@@ -258,17 +267,122 @@ const updateFaculty = async (req, res, next) => {
             return errorResponse(res, 404, 'Faculty not found');
         }
 
-        await User.findByIdAndUpdate(faculty.userId, { name, email, department, phone, status });
-        Object.assign(faculty, {
-            employeeId, designation, subjects, qualification,
-            departmentId: departmentId !== undefined ? departmentId : faculty.departmentId,
-            subjectIds: subjectIds !== undefined ? subjectIds : faculty.subjectIds,
-            classIds: classIds !== undefined ? classIds : faculty.classIds
-        });
-        await faculty.save();
+        // Store original values for audit
+        const originalSubjectIds = [...(faculty.subjectIds || [])];
+        const originalClassIds = [...(faculty.classIds || [])];
+        const originalDepartmentId = faculty.departmentId;
 
-        return successResponse(res, 200, 'Faculty updated successfully', faculty);
+        // Update user data (only provided fields)
+        const userUpdateData = {};
+        if (name !== undefined) userUpdateData.name = name;
+        if (email !== undefined) userUpdateData.email = email;
+        if (department !== undefined) userUpdateData.department = department;
+        if (phone !== undefined) userUpdateData.phone = phone;
+        if (status !== undefined) userUpdateData.status = status;
+
+        if (Object.keys(userUpdateData).length > 0) {
+            await User.findByIdAndUpdate(faculty.userId, { $set: userUpdateData });
+        }
+
+        // Prepare faculty update data - ONLY include fields that were explicitly provided
+        const facultyUpdateData = {};
+
+        if (employeeId !== undefined) facultyUpdateData.employeeId = employeeId;
+        if (designation !== undefined) facultyUpdateData.designation = designation;
+        if (subjects !== undefined) facultyUpdateData.subjects = subjects;
+        if (qualification !== undefined) facultyUpdateData.qualification = qualification;
+
+        // PROTECTED FIELDS: Only update if explicitly provided AND not empty
+        // This prevents accidental clearing of assignments
+
+        // DepartmentId update with audit
+        if (departmentId !== undefined) {
+            facultyUpdateData.departmentId = departmentId;
+            if (String(departmentId) !== String(originalDepartmentId)) {
+                await FacultyAssignmentAudit.logChange({
+                    facultyId: faculty._id,
+                    userId: faculty.userId,
+                    action: 'updated',
+                    fieldChanged: 'departmentId',
+                    beforeValue: originalDepartmentId,
+                    afterValue: departmentId,
+                    changedBy: req.user._id,
+                    changedByRole: 'admin',
+                    reason: 'Admin faculty update',
+                    apiEndpoint: 'PUT /api/admin/faculty/:id'
+                });
+                console.log(`[AUDIT] Faculty ${faculty._id} departmentId changed: ${originalDepartmentId} -> ${departmentId}`);
+            }
+        }
+
+        // SubjectIds update with audit and protection
+        if (subjectIds !== undefined) {
+            // PROTECTION: If an empty array is passed, log a warning but still allow it (admin explicit action)
+            if (Array.isArray(subjectIds) && subjectIds.length === 0 && originalSubjectIds.length > 0) {
+                console.warn(`[PROTECTION] Warning: Clearing all subjectIds for faculty ${faculty._id}. Original: ${originalSubjectIds.join(', ')}`);
+            }
+
+            facultyUpdateData.subjectIds = subjectIds;
+
+            // Log the change
+            const action = subjectIds.length === 0 ? 'cleared' :
+                subjectIds.length > originalSubjectIds.length ? 'assigned' : 'updated';
+
+            await FacultyAssignmentAudit.logChange({
+                facultyId: faculty._id,
+                userId: faculty.userId,
+                action,
+                fieldChanged: 'subjectIds',
+                beforeValue: originalSubjectIds,
+                afterValue: subjectIds,
+                changedBy: req.user._id,
+                changedByRole: 'admin',
+                reason: 'Admin faculty update',
+                apiEndpoint: 'PUT /api/admin/faculty/:id'
+            });
+            console.log(`[AUDIT] Faculty ${faculty._id} subjectIds changed: [${originalSubjectIds.join(', ')}] -> [${subjectIds.join(', ')}]`);
+        }
+
+        // ClassIds update with audit and protection
+        if (classIds !== undefined) {
+            if (Array.isArray(classIds) && classIds.length === 0 && originalClassIds.length > 0) {
+                console.warn(`[PROTECTION] Warning: Clearing all classIds for faculty ${faculty._id}. Original: ${originalClassIds.join(', ')}`);
+            }
+
+            facultyUpdateData.classIds = classIds;
+
+            const action = classIds.length === 0 ? 'cleared' :
+                classIds.length > originalClassIds.length ? 'assigned' : 'updated';
+
+            await FacultyAssignmentAudit.logChange({
+                facultyId: faculty._id,
+                userId: faculty.userId,
+                action,
+                fieldChanged: 'classIds',
+                beforeValue: originalClassIds,
+                afterValue: classIds,
+                changedBy: req.user._id,
+                changedByRole: 'admin',
+                reason: 'Admin faculty update',
+                apiEndpoint: 'PUT /api/admin/faculty/:id'
+            });
+            console.log(`[AUDIT] Faculty ${faculty._id} classIds changed: [${originalClassIds.join(', ')}] -> [${classIds.join(', ')}]`);
+        }
+
+        // Apply updates using $set to prevent overwriting other fields
+        if (Object.keys(facultyUpdateData).length > 0) {
+            await Faculty.findByIdAndUpdate(req.params.id, { $set: facultyUpdateData });
+        }
+
+        // Fetch updated faculty
+        const updatedFaculty = await Faculty.findById(req.params.id)
+            .populate('departmentId', 'name code')
+            .populate('subjectIds', 'name code');
+
+        console.log(`[SUCCESS] Faculty ${faculty._id} updated successfully`);
+        return successResponse(res, 200, 'Faculty updated successfully', updatedFaculty);
     } catch (error) {
+        console.error('[ERROR] Faculty update failed:', error);
         next(error);
     }
 };

@@ -6,6 +6,7 @@ import Modal, { ConfirmModal } from '../../components/common/Modal';
 import EmptyState from '../../components/common/EmptyState';
 import { SkeletonTable } from '../../components/common/LoadingSpinner';
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiDollarSign, FiCheck, FiX, FiDownload } from 'react-icons/fi';
+import { getErrorMessage } from '../../utils/errorNormalizer';
 
 const ManageFees = () => {
     const [fees, setFees] = useState([]);
@@ -75,7 +76,7 @@ const ManageFees = () => {
             fetchFees();
             handleCloseModal();
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Operation failed');
+            toast.error(getErrorMessage(error, 'Operation failed'));
         } finally {
             setIsSubmitting(false);
         }

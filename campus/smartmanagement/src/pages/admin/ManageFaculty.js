@@ -7,6 +7,7 @@ import EmptyState from '../../components/common/EmptyState';
 import Pagination from '../../components/common/Pagination';
 import { SkeletonTable } from '../../components/common/LoadingSpinner';
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiKey, FiLoader } from 'react-icons/fi';
+import { getErrorMessage } from '../../utils/errorNormalizer';
 
 const ManageFaculty = () => {
     const [faculty, setFaculty] = useState([]);
@@ -172,7 +173,7 @@ const ManageFaculty = () => {
             fetchFaculty();
             handleCloseModal();
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Operation failed');
+            toast.error(getErrorMessage(error, 'Operation failed'));
         } finally {
             setIsSubmitting(false);
         }
@@ -214,7 +215,7 @@ const ManageFaculty = () => {
             setShowDeleteModal(false);
             setSelectedFaculty(null);
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Delete failed');
+            toast.error(getErrorMessage(error, 'Delete failed'));
         } finally {
             setIsSubmitting(false);
         }
@@ -249,7 +250,7 @@ const ManageFaculty = () => {
             setConfirmPassword('');
             setSelectedFaculty(null);
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Password reset failed');
+            toast.error(getErrorMessage(error, 'Password reset failed'));
         } finally {
             setIsSubmitting(false);
         }

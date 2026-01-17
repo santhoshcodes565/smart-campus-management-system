@@ -20,14 +20,38 @@ api.interceptors.request.use(
         }
         return config;
     },
-    (error) => Promise.reject(error)
+    (error) => {
+        // Always reject with a proper Error instance, never raw objects
+        const message = error?.message || 'Request configuration error';
+        return Promise.reject(new Error(message));
+    }
 );
 
 // Response interceptor - handle errors
 api.interceptors.response.use(
     (response) => response,
     (error) => {
-        const message = error.response?.data?.error || error.message || 'Something went wrong';
+        // Extract error message safely - NEVER throw raw objects
+        let message = 'Something went wrong';
+
+        if (error.response?.data?.error) {
+            // Handle case where error might be an object
+            const errorData = error.response.data.error;
+            message = typeof errorData === 'string'
+                ? errorData
+                : (errorData?.message || JSON.stringify(errorData));
+        } else if (error.response?.data?.message) {
+            message = error.response.data.message;
+        } else if (error.message) {
+            message = error.message;
+        } else if (typeof error === 'string') {
+            message = error;
+        }
+
+        // Handle network errors (no response received)
+        if (!error.response && error.request) {
+            message = 'Network error. Please check your connection.';
+        }
 
         if (error.response?.status === 401) {
             localStorage.removeItem('token');
@@ -40,7 +64,11 @@ api.interceptors.response.use(
             toast.error('Server error. Please try again later.');
         }
 
-        return Promise.reject(error);
+        // Create a proper Error instance - NEVER reject with raw objects
+        const enhancedError = new Error(message);
+        enhancedError.status = error.response?.status;
+        enhancedError.originalError = error;
+        return Promise.reject(enhancedError);
     }
 );
 
@@ -59,17 +87,36 @@ export const studentAPI = {
     getTimetable: () => api.get('/student/timetable'),
     getFees: () => api.get('/student/fees'),
     getTransport: () => api.get('/student/transport'),
-    getNotices: () => api.get('/student/notices'),
     applyLeave: (data) => api.post('/student/leave', data),
-    getLeaves: () => api.get('/student/leaves'),
+    getLeaves: () => api.get('/student/leave'),
+    getLeaveStats: () => api.get('/student/leave/stats'),
     getDashboard: () => api.get('/student/dashboard'),
+
+    // Notice System - Read Only
+    getNotices: (params) => api.get('/student/notices', { params }),
+    markNoticeAsRead: (id) => api.put(`/student/notices/${id}/read`),
 
     // Online Exam System
     getOnlineExams: () => api.get('/student/online-exams'),
     getExamForAttempt: (examId) => api.get(`/student/online-exams/${examId}`),
     startExam: (examId) => api.post(`/student/online-exams/${examId}/start`),
+    saveExamAnswers: (examId, data) => api.put(`/student/online-exams/${examId}/save`, data),
     submitExam: (examId, data) => api.post(`/student/online-exams/${examId}/submit`, data),
     getOnlineExamResults: () => api.get('/student/online-exams/results'),
+
+    // Feedback System (V1 - Legacy)
+    submitFeedback: (data) => api.post('/student/feedback', data),
+    getMyFeedback: () => api.get('/student/feedback/my'),
+    getFacultyList: () => api.get('/student/feedback/faculty-list'),
+
+    // Feedback V2 - Thread-based System
+    feedbackV2: {
+        getThreads: (params) => api.get('/student/feedback/threads', { params }),
+        getThread: (id) => api.get(`/student/feedback/threads/${id}`),
+        createThread: (data) => api.post('/student/feedback/threads', data),
+        replyToThread: (id, data) => api.post(`/student/feedback/threads/${id}/reply`, data),
+        getFacultyList: () => api.get('/student/feedback/v2/faculty-list'),
+    },
 };
 
 // Faculty API
@@ -86,19 +133,49 @@ export const facultyAPI = {
     getTimetable: () => api.get('/faculty/timetable'),
     getLeaveRequests: () => api.get('/faculty/leave-requests'),
     updateLeaveStatus: (id, status) => api.put(`/faculty/leave-requests/${id}`, { status }),
+
+    // Notice System - Can only target students
+    getNotices: (params) => api.get('/faculty/notices', { params }),
     postNotice: (data) => api.post('/faculty/notices', data),
-    getNotices: () => api.get('/faculty/notices'),
+    deleteNotice: (id) => api.delete(`/faculty/notices/${id}`),
 
     // Online Exam System
     getOnlineExams: () => api.get('/faculty/online-exams'),
     createOnlineExam: (data) => api.post('/faculty/online-exams', data),
     updateOnlineExam: (id, data) => api.put(`/faculty/online-exams/${id}`, data),
+    deleteOnlineExam: (id) => api.delete(`/faculty/online-exams/${id}`),
     publishOnlineExam: (id) => api.put(`/faculty/online-exams/${id}/publish`),
     getExamQuestions: (examId) => api.get(`/faculty/online-exams/${examId}/questions`),
     addExamQuestion: (examId, data) => api.post(`/faculty/online-exams/${examId}/questions`, data),
+    updateExamQuestion: (examId, questionId, data) => api.put(`/faculty/online-exams/${examId}/questions/${questionId}`, data),
     deleteExamQuestion: (examId, questionId) => api.delete(`/faculty/online-exams/${examId}/questions/${questionId}`),
     getExamResults: (examId) => api.get(`/faculty/online-exams/${examId}/results`),
     evaluateExam: (examId, data) => api.put(`/faculty/online-exams/${examId}/evaluate`, data),
+
+    // Feedback System (V1 - Legacy)
+    submitFeedback: (data) => api.post('/faculty/feedback', data),
+    getMyFeedback: () => api.get('/faculty/feedback/my'),
+    markFeedbackViewed: (id) => api.put(`/faculty/feedback/${id}/view`),
+
+    // Feedback V2 - Thread-based System
+    feedbackV2: {
+        getThreads: (params) => api.get('/faculty/feedback/threads', { params }),
+        getThread: (id) => api.get(`/faculty/feedback/threads/${id}`),
+        createThread: (data) => api.post('/faculty/feedback/threads', data),
+        replyToThread: (id, data) => api.post(`/faculty/feedback/threads/${id}/reply`, data),
+    },
+
+    // Read-only access to academic data (for dropdowns)
+    getSubjects: () => api.get('/faculty/subjects'),
+    getCourses: () => api.get('/faculty/courses'),
+    getDepartments: () => api.get('/faculty/departments'),
+
+    // Leave Management (NEW)
+    applyLeave: (data) => api.post('/faculty/leave/apply', data),
+    getMyLeaves: () => api.get('/faculty/leave/my'),
+    getLeaveStats: () => api.get('/faculty/leave/stats'),
+    approveStudentLeave: (id, data) => api.put(`/faculty/leave/${id}/approve`, data),
+    rejectStudentLeave: (id, data) => api.put(`/faculty/leave/${id}/reject`, data),
 };
 
 // Admin API
@@ -172,8 +249,8 @@ export const adminAPI = {
     deleteTransportRoute: (id) => api.delete(`/admin/transport/${id}`),
     assignStudentToRoute: (data) => api.post('/admin/transport/assign', data),
 
-    // Notices
-    getNotices: () => api.get('/admin/notices'),
+    // Notices - Full CRUD
+    getNotices: (params) => api.get('/admin/notices', { params }),
     createNotice: (data) => api.post('/admin/notices', data),
     updateNotice: (id, data) => api.put(`/admin/notices/${id}`, data),
     deleteNotice: (id) => api.delete(`/admin/notices/${id}`),
@@ -186,6 +263,97 @@ export const adminAPI = {
     // Settings
     getSettings: () => api.get('/admin/settings'),
     updateSettings: (data) => api.put('/admin/settings', data),
+
+    // Feedback System (V1 - Legacy)
+    getAllFeedback: (params) => api.get('/admin/feedback', { params }),
+    markFeedbackViewed: (id) => api.put(`/admin/feedback/${id}/view`),
+    markFeedbackResolved: (id) => api.put(`/admin/feedback/${id}/resolve`),
+
+    // Feedback V2 - Thread-based System
+    feedbackV2: {
+        getThreads: (params) => api.get('/admin/feedback/threads', { params }),
+        getThread: (id) => api.get(`/admin/feedback/threads/${id}`),
+        createThread: (data) => api.post('/admin/feedback/threads', data),
+        replyToThread: (id, data) => api.post(`/admin/feedback/threads/${id}/reply`, data),
+        updateStatus: (id, status) => api.put(`/admin/feedback/threads/${id}/status`, { status }),
+        updatePriority: (id, priority) => api.put(`/admin/feedback/threads/${id}/priority`, { priority }),
+        softDelete: (id) => api.delete(`/admin/feedback/threads/${id}`),
+        migrateV1: () => api.post('/admin/feedback/migrate-v1'),
+    },
+
+    // Exam Analytics V2 - Advanced Analytics
+    examAnalyticsV2: {
+        getFilterOptions: () => api.get('/admin/exam-analytics/v2/filters'),
+        getKPIs: (params) => api.get('/admin/exam-analytics/v2/kpis', { params }),
+        getExams: (params) => api.get('/admin/exam-analytics/v2/exams', { params }),
+        getExamDrillDown: (id) => api.get(`/admin/exam-analytics/v2/exam/${id}`),
+        getDepartments: (params) => api.get('/admin/exam-analytics/v2/departments', { params }),
+        getSemesters: (params) => api.get('/admin/exam-analytics/v2/semesters', { params }),
+        getFaculty: (params) => api.get('/admin/exam-analytics/v2/faculty', { params }),
+        getRiskStudents: (params) => api.get('/admin/exam-analytics/v2/risk-students', { params }),
+    },
+
+    // Admin Settings V2 - System Control Center
+    adminSettings: {
+        // Profile
+        getProfile: () => api.get('/admin/profile'),
+        updateProfile: (data) => api.put('/admin/profile', data),
+        changePassword: (data) => api.put('/admin/profile/password', data),
+
+        // Security
+        getUsers: (params) => api.get('/admin/settings/security/users', { params }),
+        forcePasswordReset: (data) => api.post('/admin/settings/security/force-reset', data),
+        lockUnlockUser: (id, lock) => api.put(`/admin/settings/security/lock-user/${id}`, { lock }),
+        getLoginHistory: (params) => api.get('/admin/settings/security/login-history', { params }),
+
+        // System
+        getSystemSettings: () => api.get('/admin/settings/system'),
+        updateSystemSettings: (data) => api.put('/admin/settings/system', data),
+
+        // Academic
+        getAcademicRules: () => api.get('/admin/settings/academic'),
+        updateAcademicRules: (data) => api.put('/admin/settings/academic', data),
+
+        // Policies
+        getUserPolicies: () => api.get('/admin/settings/policies'),
+        updateUserPolicies: (data) => api.put('/admin/settings/policies', data),
+
+        // Access
+        getAccessControl: () => api.get('/admin/settings/access'),
+
+        // Audit
+        getAuditLogs: (params) => api.get('/admin/settings/audit', { params }),
+
+        // Export
+        exportData: (type) => api.get(`/admin/settings/export/${type}`),
+    },
+
+    // Attendance V2 - All roles
+    attendanceV2: {
+        // Faculty
+        getAssignedSubjects: () => api.get('/faculty/attendance/v2/subjects'),
+        getStudentsForAttendance: (params) => api.get('/faculty/attendance/v2/students', { params }),
+        markAttendance: (data) => api.post('/faculty/attendance/v2/mark', data),
+        getAttendanceHistory: (params) => api.get('/faculty/attendance/v2/history', { params }),
+
+        // Student
+        getMyAttendance: () => api.get('/student/attendance/v2'),
+        getMyAttendanceSummary: () => api.get('/student/attendance/v2/summary'),
+        checkEligibility: () => api.get('/student/attendance/v2/eligibility'),
+
+        // Admin
+        getDashboard: (params) => api.get('/admin/attendance/v2/dashboard', { params }),
+        getAnalytics: (params) => api.get('/admin/attendance/v2/analytics', { params }),
+        getLowAttendance: (params) => api.get('/admin/attendance/v2/low-attendance', { params }),
+        exportReport: (params) => api.get('/admin/attendance/v2/export', { params }),
+    },
+
+    // Leave Management (NEW)
+    getFacultyLeaves: (params) => api.get('/admin/leave/faculty', { params }),
+    approveFacultyLeave: (id, data) => api.put(`/admin/leave/${id}/approve`, data),
+    rejectFacultyLeave: (id, data) => api.put(`/admin/leave/${id}/reject`, data),
+    getLeaveStats: () => api.get('/admin/leave/stats'),
+    getLeaveAnalytics: () => api.get('/admin/leave/analytics'),
 };
 
 export default api;

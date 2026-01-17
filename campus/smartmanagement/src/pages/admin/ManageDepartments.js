@@ -7,6 +7,7 @@ import EmptyState from '../../components/common/EmptyState';
 import Pagination from '../../components/common/Pagination';
 import { SkeletonTable } from '../../components/common/LoadingSpinner';
 import { FiPlus, FiEdit2, FiTrash2, FiSearch, FiToggleLeft, FiToggleRight, FiAlertTriangle } from 'react-icons/fi';
+import { getErrorMessage } from '../../utils/errorNormalizer';
 
 const ManageDepartments = () => {
     const [departments, setDepartments] = useState([]);
@@ -85,7 +86,7 @@ const ManageDepartments = () => {
             fetchDepartments();
             handleCloseModal();
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Operation failed');
+            toast.error(getErrorMessage(error, 'Operation failed'));
         } finally {
             setIsSubmitting(false);
         }
@@ -117,7 +118,7 @@ const ManageDepartments = () => {
                 setShowDeleteModal(false);
                 setShowDependencyModal(true);
             } else {
-                toast.error(error.response?.data?.error || 'Delete failed');
+                toast.error(getErrorMessage(error, 'Delete failed'));
             }
         } finally {
             setIsSubmitting(false);
@@ -134,7 +135,7 @@ const ManageDepartments = () => {
             setSelectedDepartment(null);
             setDependencies(null);
         } catch (error) {
-            toast.error(error.response?.data?.error || 'Deactivation failed');
+            toast.error(getErrorMessage(error, 'Deactivation failed'));
         } finally {
             setIsSubmitting(false);
         }
