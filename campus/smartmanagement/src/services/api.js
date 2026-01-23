@@ -229,11 +229,14 @@ export const adminAPI = {
     updateFaculty: (id, data) => api.put(`/admin/faculty/${id}`, data),
     deleteFaculty: (id) => api.delete(`/admin/faculty/${id}`),
 
-    // Timetable
-    getTimetables: () => api.get('/admin/timetables'),
-    createTimetable: (data) => api.post('/admin/timetables', data),
-    updateTimetable: (id, data) => api.put(`/admin/timetables/${id}`, data),
-    deleteTimetable: (id) => api.delete(`/admin/timetables/${id}`),
+    // Timetable (Enhanced with lifecycle)
+    getTimetables: (params) => api.get('/admin/timetable', { params }),
+    createTimetable: (data) => api.post('/admin/timetable', data),
+    updateTimetable: (id, data) => api.put(`/admin/timetable/${id}`, data),
+    deleteTimetable: (id) => api.delete(`/admin/timetable/${id}`),
+    publishTimetable: (id) => api.put(`/admin/timetable/${id}/publish`),
+    lockTimetable: (id) => api.put(`/admin/timetable/${id}/lock`),
+    validateTimetableConflicts: (data) => api.post('/admin/timetable/validate', data),
 
     // Fees
     getFees: () => api.get('/admin/fees'),
@@ -354,6 +357,21 @@ export const adminAPI = {
     rejectFacultyLeave: (id, data) => api.put(`/admin/leave/${id}/reject`, data),
     getLeaveStats: () => api.get('/admin/leave/stats'),
     getLeaveAnalytics: () => api.get('/admin/leave/analytics'),
+
+    // DOB Management
+    updateUserDOB: (userId, dateOfBirth) => api.put(`/admin/users/${userId}/dob`, { dateOfBirth }),
+};
+
+// Birthday Intelligence API
+export const birthdayAPI = {
+    // Get all users with birthday today
+    getTodaysBirthdays: () => api.get('/birthdays/today'),
+    // Check if current user's birthday is today
+    checkMyBirthday: () => api.get('/birthdays/me'),
+    // Get birthday statistics (admin only)
+    getStats: () => api.get('/birthdays/stats'),
+    // Get users missing DOB (admin only, for migration)
+    getUsersMissingDOB: () => api.get('/birthdays/missing-dob'),
 };
 
 export default api;

@@ -30,7 +30,7 @@ const getProfile = async (req, res, next) => {
 
 // @desc    Get student timetable
 // @route   GET /api/student/timetable
-// @access  Student
+// @access  Student (READ-ONLY - only published/locked timetables visible)
 const getTimetable = async (req, res, next) => {
     try {
         const student = await Student.findOne({ userId: req.user._id });
@@ -38,11 +38,19 @@ const getTimetable = async (req, res, next) => {
             return errorResponse(res, 404, 'Student not found');
         }
 
+        // Only show published or locked timetables (not draft)
         const timetable = await Timetable.find({
             department: req.user.department,
             year: student.year,
-            section: student.section
-        }).populate('slots.faculty', 'userId');
+            section: student.section,
+            status: { $in: ['published', 'locked'] }  // Lifecycle filter
+        })
+            .populate('slots.faculty', 'userId')
+            .populate({
+                path: 'slots.faculty',
+                populate: { path: 'userId', select: 'name' }
+            })
+            .sort({ day: 1 });
 
         return successResponse(res, 200, 'Timetable retrieved', timetable);
     } catch (error) {

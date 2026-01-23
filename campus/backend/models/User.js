@@ -43,6 +43,12 @@ const userSchema = new mongoose.Schema({
     profileImage: {
         type: String,
         default: ''
+    },
+    dateOfBirth: {
+        type: Date,
+        // Note: Required for NEW users via validation, but optional at schema level
+        // to support existing users during migration period
+        index: true  // Indexed for birthday query optimization
     }
 }, {
     timestamps: true

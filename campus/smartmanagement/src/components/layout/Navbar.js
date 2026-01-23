@@ -167,7 +167,7 @@ const Navbar = () => {
                             </div>
                             <div className="py-2">
                                 <Link
-                                    to={`/${user?.role}/profile`}
+                                    to={`/${user?.role}/settings/profile`}
                                     className="flex items-center gap-3 px-4 py-2.5 text-secondary-600 hover:bg-gray-50 transition-colors"
                                     onClick={() => setShowProfile(false)}
                                 >

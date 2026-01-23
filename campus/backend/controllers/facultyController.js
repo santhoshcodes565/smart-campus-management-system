@@ -293,7 +293,7 @@ const postNotice = async (req, res, next) => {
 
 // @desc    Get faculty timetable
 // @route   GET /api/faculty/timetable
-// @access  Faculty
+// @access  Faculty (READ-ONLY - only published/locked timetables visible)
 const getTimetable = async (req, res, next) => {
     try {
         const faculty = await Faculty.findOne({ userId: req.user._id });
@@ -301,12 +301,33 @@ const getTimetable = async (req, res, next) => {
             return errorResponse(res, 404, 'Faculty not found');
         }
 
-        // Find timetables where this faculty is assigned
+        // Only show published or locked timetables where this faculty is assigned
         const timetables = await Timetable.find({
-            'slots.faculty': faculty._id
-        });
+            'slots.faculty': faculty._id,
+            status: { $in: ['published', 'locked'] }  // Lifecycle filter
+        })
+            .populate('slots.subjectId', 'name code')
+            .populate('departmentId', 'name')
+            .populate('courseId', 'name')
+            .sort({ day: 1 });
 
-        return successResponse(res, 200, 'Timetable retrieved', timetables);
+        // Transform to faculty-friendly format
+        const formattedTimetables = timetables.map(tt => ({
+            _id: tt._id,
+            day: tt.day,
+            department: tt.department,
+            year: tt.year,
+            section: tt.section,
+            status: tt.status,
+            slots: tt.slots.filter(slot =>
+                slot.faculty && slot.faculty.toString() === faculty._id.toString()
+            ).map(slot => ({
+                ...slot.toObject(),
+                class: `${tt.department}-${tt.year}-${tt.section}`
+            }))
+        }));
+
+        return successResponse(res, 200, 'Timetable retrieved', formattedTimetables);
     } catch (error) {
         next(error);
     }

@@ -75,6 +75,14 @@
     margin-bottom: 2rem;
 }
 
+/* Dashboard Widgets Row */
+.dashboard-widgets-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 400px));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
 /* Dashboard Grid */
 .dashboard-grid {
     display: grid;

@@ -48,6 +48,7 @@ const ManageStudents = () => {
         guardianPhone: '',
         address: '',
         bloodGroup: '',
+        dateOfBirth: '',  // Admin-only: Required for new students
     });
 
     const years = [1, 2, 3, 4];
@@ -163,6 +164,11 @@ const ManageStudents = () => {
                 semester: parseInt(formData.semester),
             };
 
+            // Include dateOfBirth only for new students (admin sets it at creation)
+            if (!selectedStudent && formData.dateOfBirth) {
+                payload.dateOfBirth = formData.dateOfBirth;
+            }
+
             if (selectedStudent) {
                 await adminAPI.updateStudent(selectedStudent._id, payload);
                 toast.success('Student updated successfully');
@@ -266,7 +272,8 @@ const ManageStudents = () => {
         setFormData({
             name: '', username: '', password: '', phone: '', rollNo: '', department: '',
             departmentId: '', courseId: '', batch: '',
-            year: 1, semester: 1, section: '', course: '', guardianName: '', guardianPhone: '', address: '', bloodGroup: ''
+            year: 1, semester: 1, section: '', course: '', guardianName: '', guardianPhone: '', address: '', bloodGroup: '',
+            dateOfBirth: ''
         });
     };
 
@@ -488,18 +495,32 @@ const ManageStudents = () => {
                             />
                         </div>
                         {!selectedStudent && (
-                            <div className="form-group">
-                                <label className="label">Password *</label>
-                                <input
-                                    type="password"
-                                    name="password"
-                                    value={formData.password}
-                                    onChange={handleChange}
-                                    className="input"
-                                    required={!selectedStudent}
-                                    minLength={6}
-                                />
-                            </div>
+                            <>
+                                <div className="form-group">
+                                    <label className="label">Password *</label>
+                                    <input
+                                        type="password"
+                                        name="password"
+                                        value={formData.password}
+                                        onChange={handleChange}
+                                        className="input"
+                                        required={!selectedStudent}
+                                        minLength={6}
+                                    />
+                                </div>
+                                <div className="form-group">
+                                    <label className="label">Date of Birth *</label>
+                                    <input
+                                        type="date"
+                                        name="dateOfBirth"
+                                        value={formData.dateOfBirth}
+                                        onChange={handleChange}
+                                        className="input"
+                                        required
+                                        max={new Date().toISOString().split('T')[0]}
+                                    />
+                                </div>
+                            </>
                         )}
                         <div className="form-group">
                             <label className="label">Phone</label>

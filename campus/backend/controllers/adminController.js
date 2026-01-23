@@ -20,18 +20,25 @@ const createStudent = async (req, res, next) => {
         const {
             name, username, password, department, phone, rollNo,
             year, section, course, semester,
-            departmentId, courseId, batch
+            departmentId, courseId, batch, dateOfBirth
         } = req.body;
 
-        // Create user first
-        const user = await User.create({
+        // Create user first (with dateOfBirth if provided by admin)
+        const userData = {
             name,
             username,
             password,
             role: 'student',
             department,
             phone
-        });
+        };
+
+        // Add dateOfBirth if provided (admin sets this at creation)
+        if (dateOfBirth) {
+            userData.dateOfBirth = new Date(dateOfBirth);
+        }
+
+        const user = await User.create(userData);
 
         // Create student profile with academic fields
         const student = await Student.create({
@@ -190,17 +197,25 @@ const createFaculty = async (req, res, next) => {
     try {
         const {
             name, username, password, department, phone, employeeId, designation,
-            subjects, qualification, departmentId, subjectIds, classIds
+            subjects, qualification, departmentId, subjectIds, classIds, dateOfBirth
         } = req.body;
 
-        const user = await User.create({
+        // Create user (with dateOfBirth if provided by admin)
+        const userData = {
             name,
             username,
             password,
             role: 'faculty',
             department,
             phone
-        });
+        };
+
+        // Add dateOfBirth if provided (admin sets this at creation)
+        if (dateOfBirth) {
+            userData.dateOfBirth = new Date(dateOfBirth);
+        }
+
+        const user = await User.create(userData);
 
         const faculty = await Faculty.create({
             userId: user._id,
@@ -406,22 +421,323 @@ const deleteFaculty = async (req, res, next) => {
     }
 };
 
-// ==================== TIMETABLE MANAGEMENT ====================
+// ==================== TIMETABLE MANAGEMENT (ENHANCED) ====================
 
-// @desc    Create/Update timetable
+// Helper: Check for conflicts
+const checkTimetableConflicts = async (day, slots, excludeId = null, academicYear, semester) => {
+    const conflicts = [];
+
+    for (const slot of slots) {
+        if (!slot.faculty || !slot.startTime) continue;
+
+        // Build query for conflict check
+        const query = {
+            day,
+            academicYear: academicYear || '2025-26',
+            semester: semester || 1,
+            status: { $in: ['published', 'locked'] },
+            'slots.faculty': slot.faculty,
+            'slots.startTime': slot.startTime
+        };
+
+        if (excludeId) {
+            query._id = { $ne: excludeId };
+        }
+
+        // Check faculty double-booking
+        const facultyConflict = await Timetable.findOne(query);
+        if (facultyConflict) {
+            conflicts.push({
+                type: 'FACULTY_DOUBLE_BOOKING',
+                severity: 'error',
+                message: `Faculty already assigned to another class at ${slot.startTime} on ${day}`,
+                conflictWith: {
+                    department: facultyConflict.department,
+                    year: facultyConflict.year,
+                    section: facultyConflict.section
+                }
+            });
+        }
+
+        // Check room clash (only if room is specified)
+        if (slot.room && slot.room.trim() !== '') {
+            const roomQuery = {
+                day,
+                academicYear: academicYear || '2025-26',
+                semester: semester || 1,
+                'slots.room': slot.room,
+                'slots.startTime': slot.startTime
+            };
+
+            if (excludeId) {
+                roomQuery._id = { $ne: excludeId };
+            }
+
+            const roomConflict = await Timetable.findOne(roomQuery);
+            if (roomConflict) {
+                conflicts.push({
+                    type: 'ROOM_CLASH',
+                    severity: 'warning',
+                    message: `Room ${slot.room} already booked at ${slot.startTime} on ${day}`,
+                    conflictWith: {
+                        department: roomConflict.department,
+                        year: roomConflict.year,
+                        section: roomConflict.section
+                    }
+                });
+            }
+        }
+    }
+
+    return conflicts;
+};
+
+// @desc    Create timetable (new entry)
 // @route   POST /api/admin/timetable
+// @access  Admin
+const createTimetable = async (req, res, next) => {
+    try {
+        const {
+            department, year, section, day, slots,
+            academicYear = '2025-26', semester = 1
+        } = req.body;
+
+        // Check for conflicts before save
+        const conflicts = await checkTimetableConflicts(day, slots || [], null, academicYear, semester);
+
+        // Block on hard errors (faculty double-booking)
+        const hardErrors = conflicts.filter(c => c.severity === 'error');
+        if (hardErrors.length > 0) {
+            return errorResponse(res, 400, 'Conflict detected', { conflicts: hardErrors });
+        }
+
+        // Check if timetable already exists for this slot
+        const existing = await Timetable.findOne({
+            academicYear, semester, department, year, section, day
+        });
+
+        if (existing) {
+            return errorResponse(res, 400, 'Timetable already exists for this class/day. Use update instead.');
+        }
+
+        const timetable = await Timetable.create({
+            academicYear,
+            semester,
+            department,
+            year,
+            section,
+            day,
+            slots: slots || [],
+            status: 'draft',
+            createdBy: req.user._id,
+            lastModifiedBy: req.user._id
+        });
+
+        // Return with warnings if any
+        return successResponse(res, 201, 'Timetable created successfully', {
+            timetable,
+            warnings: conflicts.filter(c => c.severity === 'warning')
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Update timetable
+// @route   PUT /api/admin/timetable/:id
+// @access  Admin
+const updateTimetable = async (req, res, next) => {
+    try {
+        const { slots, room } = req.body;
+
+        const timetable = await Timetable.findById(req.params.id);
+        if (!timetable) {
+            return errorResponse(res, 404, 'Timetable not found');
+        }
+
+        // Check if locked
+        if (timetable.status === 'locked') {
+            return errorResponse(res, 403, 'Cannot modify locked timetable. Contact administrator.');
+        }
+
+        // Check for conflicts
+        if (slots) {
+            const conflicts = await checkTimetableConflicts(
+                timetable.day,
+                slots,
+                timetable._id,
+                timetable.academicYear,
+                timetable.semester
+            );
+
+            const hardErrors = conflicts.filter(c => c.severity === 'error');
+            if (hardErrors.length > 0) {
+                return errorResponse(res, 400, 'Conflict detected', { conflicts: hardErrors });
+            }
+        }
+
+        // Update fields
+        if (slots) timetable.slots = slots;
+        timetable.lastModifiedBy = req.user._id;
+
+        await timetable.save();
+
+        return successResponse(res, 200, 'Timetable updated successfully', timetable);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Delete timetable
+// @route   DELETE /api/admin/timetable/:id
+// @access  Admin
+const deleteTimetable = async (req, res, next) => {
+    try {
+        const timetable = await Timetable.findById(req.params.id);
+        if (!timetable) {
+            return errorResponse(res, 404, 'Timetable not found');
+        }
+
+        // Only allow deletion of draft timetables
+        if (timetable.status !== 'draft') {
+            return errorResponse(res, 403, 'Can only delete draft timetables. Archive instead.');
+        }
+
+        await Timetable.findByIdAndDelete(req.params.id);
+        return successResponse(res, 200, 'Timetable deleted successfully');
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Publish timetable (draft → published)
+// @route   PUT /api/admin/timetable/:id/publish
+// @access  Admin
+const publishTimetable = async (req, res, next) => {
+    try {
+        const timetable = await Timetable.findById(req.params.id);
+        if (!timetable) {
+            return errorResponse(res, 404, 'Timetable not found');
+        }
+
+        if (timetable.status === 'locked') {
+            return errorResponse(res, 400, 'Timetable is already locked');
+        }
+
+        timetable.status = 'published';
+        timetable.publishedAt = new Date();
+        timetable.lastModifiedBy = req.user._id;
+        await timetable.save();
+
+        return successResponse(res, 200, 'Timetable published successfully', timetable);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Lock timetable (published → locked)
+// @route   PUT /api/admin/timetable/:id/lock
+// @access  Admin
+const lockTimetable = async (req, res, next) => {
+    try {
+        const timetable = await Timetable.findById(req.params.id);
+        if (!timetable) {
+            return errorResponse(res, 404, 'Timetable not found');
+        }
+
+        if (timetable.status === 'locked') {
+            return errorResponse(res, 400, 'Timetable is already locked');
+        }
+
+        timetable.status = 'locked';
+        timetable.lockedAt = new Date();
+        timetable.lastModifiedBy = req.user._id;
+        await timetable.save();
+
+        return successResponse(res, 200, 'Timetable locked successfully', timetable);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Validate conflicts without saving
+// @route   POST /api/admin/timetable/validate
+// @access  Admin
+const validateTimetableConflicts = async (req, res, next) => {
+    try {
+        const { day, slots, excludeId, academicYear, semester } = req.body;
+
+        const conflicts = await checkTimetableConflicts(
+            day,
+            slots || [],
+            excludeId,
+            academicYear,
+            semester
+        );
+
+        return successResponse(res, 200, 'Validation complete', {
+            hasErrors: conflicts.some(c => c.severity === 'error'),
+            hasWarnings: conflicts.some(c => c.severity === 'warning'),
+            conflicts
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Create/Update timetable (legacy - kept for backward compatibility)
+// @route   POST /api/admin/timetable (when doing upsert)
 // @access  Admin
 const manageTimetable = async (req, res, next) => {
     try {
-        const { department, year, section, day, slots } = req.body;
+        const {
+            department, year, section, day, slots,
+            academicYear = '2025-26', semester = 1
+        } = req.body;
+
+        // Check for conflicts
+        const existingTimetable = await Timetable.findOne({
+            academicYear, semester, department, year, section, day
+        });
+
+        const conflicts = await checkTimetableConflicts(
+            day,
+            slots || [],
+            existingTimetable?._id,
+            academicYear,
+            semester
+        );
+
+        const hardErrors = conflicts.filter(c => c.severity === 'error');
+        if (hardErrors.length > 0) {
+            return errorResponse(res, 400, 'Conflict detected', { conflicts: hardErrors });
+        }
+
+        // Check if existing timetable is locked
+        if (existingTimetable && existingTimetable.status === 'locked') {
+            return errorResponse(res, 403, 'Cannot modify locked timetable');
+        }
 
         const timetable = await Timetable.findOneAndUpdate(
-            { department, year, section, day },
-            { department, year, section, day, slots },
+            { academicYear, semester, department, year, section, day },
+            {
+                academicYear,
+                semester,
+                department,
+                year,
+                section,
+                day,
+                slots,
+                lastModifiedBy: req.user._id,
+                $setOnInsert: { createdBy: req.user._id, status: 'draft' }
+            },
             { upsert: true, new: true }
         );
 
-        return successResponse(res, 200, 'Timetable saved successfully', timetable);
+        return successResponse(res, 200, 'Timetable saved successfully', {
+            timetable,
+            warnings: conflicts.filter(c => c.severity === 'warning')
+        });
     } catch (error) {
         next(error);
     }
@@ -432,14 +748,23 @@ const manageTimetable = async (req, res, next) => {
 // @access  Admin
 const getAllTimetables = async (req, res, next) => {
     try {
-        const { department, year, section } = req.query;
+        const { department, year, section, status, academicYear, semester } = req.query;
         let query = {};
 
         if (department) query.department = department;
-        if (year) query.year = year;
+        if (year) query.year = parseInt(year);
         if (section) query.section = section;
+        if (status) query.status = status;
+        if (academicYear) query.academicYear = academicYear;
+        if (semester) query.semester = parseInt(semester);
 
-        const timetables = await Timetable.find(query).populate('slots.faculty');
+        const timetables = await Timetable.find(query)
+            .populate('slots.faculty', 'userId')
+            .populate({
+                path: 'slots.faculty',
+                populate: { path: 'userId', select: 'name' }
+            })
+            .sort({ department: 1, year: 1, section: 1, day: 1 });
 
         return successResponse(res, 200, 'Timetables retrieved', timetables);
     } catch (error) {
@@ -676,6 +1001,61 @@ const getReports = async (req, res, next) => {
     }
 };
 
+// ==================== DATE OF BIRTH MANAGEMENT ====================
+
+// @desc    Update user's date of birth (Admin only)
+// @route   PUT /api/admin/users/:id/dob
+// @access  Admin
+const updateDateOfBirth = async (req, res, next) => {
+    try {
+        const { dateOfBirth } = req.body;
+        const userId = req.params.id;
+
+        // Validate dateOfBirth
+        if (!dateOfBirth) {
+            return errorResponse(res, 400, 'Date of birth is required');
+        }
+
+        const dobDate = new Date(dateOfBirth);
+        if (isNaN(dobDate.getTime())) {
+            return errorResponse(res, 400, 'Invalid date format');
+        }
+
+        // Validate date is not in the future
+        if (dobDate > new Date()) {
+            return errorResponse(res, 400, 'Date of birth cannot be in the future');
+        }
+
+        // Validate reasonable age (not older than 120 years)
+        const minDate = new Date();
+        minDate.setFullYear(minDate.getFullYear() - 120);
+        if (dobDate < minDate) {
+            return errorResponse(res, 400, 'Invalid date of birth');
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return errorResponse(res, 404, 'User not found');
+        }
+
+        // Update only the dateOfBirth field
+        user.dateOfBirth = dobDate;
+        await user.save();
+
+        console.log(`[DOB UPDATE] Admin ${req.user._id} updated DOB for user ${userId}`);
+
+        return successResponse(res, 200, 'Date of birth updated successfully', {
+            userId: user._id,
+            name: user.name,
+            role: user.role
+            // Note: We intentionally don't return the dateOfBirth
+        });
+    } catch (error) {
+        console.error('updateDateOfBirth error:', error);
+        next(error);
+    }
+};
+
 module.exports = {
     // Student
     createStudent,
@@ -688,9 +1068,15 @@ module.exports = {
     getAllFaculty,
     updateFaculty,
     deleteFaculty,
-    // Timetable
+    // Timetable (Enhanced)
     manageTimetable,
     getAllTimetables,
+    createTimetable,
+    updateTimetable,
+    deleteTimetable,
+    publishTimetable,
+    lockTimetable,
+    validateTimetableConflicts,
     // Transport
     createTransport,
     getAllTransport,
@@ -705,5 +1091,7 @@ module.exports = {
     getAllNotices,
     deleteNotice,
     // Reports
-    getReports
+    getReports,
+    // DOB Management
+    updateDateOfBirth
 };

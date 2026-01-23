@@ -128,7 +128,8 @@
 
     /* Sidebar Styles */
     .sidebar {
-        @apply fixed left-0 top-0 h-full bg-white border-r border-gray-200 z-40 transition-all duration-300;
+        /* Fixed sidebar with flexbox column layout for proper scroll behavior */
+        @apply fixed left-0 top-0 h-screen flex flex-col bg-white border-r border-gray-200 z-40 transition-all duration-300;
     }
 
     .sidebar-link {

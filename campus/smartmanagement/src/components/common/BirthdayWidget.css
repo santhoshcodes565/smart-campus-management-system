@@ -1,0 +1,234 @@
+/* BirthdayWidget.css - Birthday Widget Styles */
+
+.birthday-widget {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(102, 126, 234, 0.3);
+    overflow: hidden;
+    color: white;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+}
+
+.birthday-widget-header {
+    padding: 16px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.birthday-icon {
+    font-size: 24px;
+    animation: bounce 2s ease infinite;
+}
+
+@keyframes bounce {
+
+    0%,
+    20%,
+    50%,
+    80%,
+    100% {
+        transform: translateY(0);
+    }
+
+    40% {
+        transform: translateY(-8px);
+    }
+
+    60% {
+        transform: translateY(-4px);
+    }
+}
+
+.birthday-widget-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+    flex: 1;
+}
+
+.birthday-date {
+    font-size: 12px;
+    opacity: 0.8;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 4px 10px;
+    border-radius: 12px;
+}
+
+.birthday-widget-body {
+    flex: 1;
+    padding: 16px 20px;
+    overflow-y: auto;
+    max-height: 300px;
+}
+
+/* Loading State */
+.birthday-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 30px;
+}
+
+.loading-spinner-small {
+    width: 24px;
+    height: 24px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Error State */
+.birthday-widget-error {
+    background: linear-gradient(135deg, #f5576c 0%, #f093fb 100%);
+}
+
+.error-text {
+    margin: 0 0 12px;
+    text-align: center;
+}
+
+.retry-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: all 0.2s;
+    display: block;
+    margin: 0 auto;
+}
+
+.retry-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Empty State */
+.birthday-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+    text-align: center;
+}
+
+.birthday-empty .empty-icon {
+    font-size: 40px;
+    margin-bottom: 10px;
+    opacity: 0.8;
+}
+
+.birthday-empty p {
+    margin: 0;
+    opacity: 0.9;
+    font-size: 14px;
+}
+
+/* Birthday List */
+.birthday-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.birthday-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.birthday-item:last-child {
+    border-bottom: none;
+}
+
+.birthday-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 16px;
+}
+
+.birthday-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.birthday-name {
+    font-weight: 500;
+    font-size: 14px;
+}
+
+.birthday-department {
+    font-size: 12px;
+    opacity: 0.75;
+}
+
+/* Role Badges */
+.role-badge {
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 10px;
+    text-transform: uppercase;
+    font-weight: 600;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.role-student {
+    background: rgba(52, 211, 153, 0.3);
+}
+
+.role-faculty {
+    background: rgba(251, 191, 36, 0.3);
+}
+
+.role-admin {
+    background: rgba(239, 68, 68, 0.3);
+}
+
+/* Footer */
+.birthday-widget-footer {
+    padding: 12px 20px;
+    background: rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.birthday-count {
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .birthday-widget {
+        min-height: 150px;
+    }
+
+    .birthday-widget-body {
+        max-height: 200px;
+    }
+}

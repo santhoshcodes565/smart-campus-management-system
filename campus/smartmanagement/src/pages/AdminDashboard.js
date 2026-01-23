@@ -1,6 +1,7 @@
 // AdminDashboard.js - Admin Portal Dashboard
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import BirthdayWidget from '../components/common/BirthdayWidget';
 import '../styles/Dashboard.css';
 
 function AdminDashboard() {
@@ -46,6 +47,11 @@ function AdminDashboard() {
             <div className="dashboard-content">
                 <h1>Admin Dashboard</h1>
                 <p className="welcome-text">Full system control and management, {user.name}!</p>
+
+                {/* Birthday Widget - Top of Dashboard */}
+                <div className="dashboard-widgets-row">
+                    <BirthdayWidget showRoleBadge={true} />
+                </div>
 
                 <div className="dashboard-grid">
                     <div className="dashboard-card">

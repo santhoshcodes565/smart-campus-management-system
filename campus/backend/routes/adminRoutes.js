@@ -12,9 +12,15 @@ const {
     getAllFaculty,
     updateFaculty,
     deleteFaculty,
-    // Timetable
+    // Timetable (Enhanced)
     manageTimetable,
     getAllTimetables,
+    createTimetable,
+    updateTimetable,
+    deleteTimetable,
+    publishTimetable,
+    lockTimetable,
+    validateTimetableConflicts,
     // Transport
     createTransport,
     getAllTransport,
@@ -25,7 +31,9 @@ const {
     getAllFees,
     updateFee,
     // Reports
-    getReports
+    getReports,
+    // DOB Management
+    updateDateOfBirth
 } = require('../controllers/adminController');
 
 // Academic Management Controller
@@ -100,8 +108,9 @@ router.put('/subjects/:id/assign-faculty', assignFacultyToSubject);
 
 // ==================== EXISTING MANAGEMENT ====================
 
-// User password reset
+// User management (password reset & DOB)
 router.put('/users/:id/reset-password', resetPassword);
+router.put('/users/:id/dob', updateDateOfBirth);
 
 // Student management
 router.route('/students')
@@ -119,10 +128,16 @@ router.route('/faculty/:id')
     .put(updateFaculty)
     .delete(deleteFaculty);
 
-// Timetable management
+// Timetable management (Enhanced with lifecycle)
 router.route('/timetable')
     .post(manageTimetable)
     .get(getAllTimetables);
+router.route('/timetable/:id')
+    .put(updateTimetable)
+    .delete(deleteTimetable);
+router.put('/timetable/:id/publish', publishTimetable);
+router.put('/timetable/:id/lock', lockTimetable);
+router.post('/timetable/validate', validateTimetableConflicts);
 
 // Transport management
 router.route('/transport')

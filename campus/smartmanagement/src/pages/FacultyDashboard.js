@@ -1,6 +1,8 @@
 // FacultyDashboard.js - Faculty Portal Dashboard
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import BirthdayBanner from '../components/common/BirthdayBanner';
+import BirthdayWidget from '../components/common/BirthdayWidget';
 import '../styles/Dashboard.css';
 
 function FacultyDashboard() {
@@ -44,8 +46,16 @@ function FacultyDashboard() {
             </nav>
 
             <div className="dashboard-content">
+                {/* Personal Birthday Banner - Shows when YOUR birthday is today */}
+                <BirthdayBanner userName={user.name} />
+
                 <h1>Faculty Dashboard</h1>
                 <p className="welcome-text">Manage your classes and students, {user.name}!</p>
+
+                {/* Global Birthday Widget - Shows ALL birthdays today */}
+                <div className="dashboard-widgets-row">
+                    <BirthdayWidget showRoleBadge={true} />
+                </div>
 
                 <div className="dashboard-grid">
                     <div className="dashboard-card">

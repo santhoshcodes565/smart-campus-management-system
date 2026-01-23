@@ -1,6 +1,8 @@
 // StudentDashboard.js - Student Portal Dashboard
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import BirthdayBanner from '../components/common/BirthdayBanner';
+import BirthdayWidget from '../components/common/BirthdayWidget';
 import '../styles/Dashboard.css';
 
 function StudentDashboard() {
@@ -45,8 +47,16 @@ function StudentDashboard() {
             </nav>
 
             <div className="dashboard-content">
+                {/* Personal Birthday Banner - Shows when YOUR birthday is today */}
+                <BirthdayBanner userName={user.name} />
+
                 <h1>Student Dashboard</h1>
                 <p className="welcome-text">Welcome to your student portal, {user.name}!</p>
+
+                {/* Global Birthday Widget - Shows ALL birthdays today */}
+                <div className="dashboard-widgets-row">
+                    <BirthdayWidget showRoleBadge={true} />
+                </div>
 
                 <div className="dashboard-grid">
                     <div className="dashboard-card">

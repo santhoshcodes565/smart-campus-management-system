@@ -106,7 +106,8 @@ const seedData = async () => {
             role: 'admin',
             department: 'Administration',
             phone: '9876543210',
-            status: 'active'
+            status: 'active',
+            dateOfBirth: new Date('1985-06-15')
         });
 
         await Admin.create({
@@ -118,6 +119,9 @@ const seedData = async () => {
 
         // Create Faculty Users
         console.log('👨‍🏫 Creating Faculty users...');
+        // Use today's date for testing birthday feature
+        const today = new Date();
+        const facultyBirthday = new Date(1980, today.getMonth(), today.getDate()); // Same day/month as today
         const mainFacultyUser = await User.create({
             name: 'Dr. Robert Smith',
             username: 'faculty',
@@ -125,7 +129,8 @@ const seedData = async () => {
             role: 'faculty',
             department: 'CSE',
             phone: '9876543211',
-            status: 'active'
+            status: 'active',
+            dateOfBirth: facultyBirthday // Will have birthday today for testing!
         });
 
         await Faculty.create({
@@ -152,7 +157,8 @@ const seedData = async () => {
                 password: 'password123',
                 role: 'faculty',
                 department: fac.department,
-                status: 'active'
+                status: 'active',
+                dateOfBirth: new Date(`1982-${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}-${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}`)
             });
 
             await Faculty.create({
@@ -175,7 +181,8 @@ const seedData = async () => {
             role: 'student',
             department: 'CSE',
             phone: '9876543212',
-            status: 'active'
+            status: 'active',
+            dateOfBirth: new Date('2003-03-20')
         });
 
         await Student.create({
@@ -201,7 +208,8 @@ const seedData = async () => {
                 password: 'password123',
                 role: 'student',
                 department: 'CSE',
-                status: 'active'
+                status: 'active',
+                dateOfBirth: new Date(`2003-${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}-${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}`)
             });
 
             await Student.create({
