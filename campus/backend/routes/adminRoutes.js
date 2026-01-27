@@ -302,5 +302,14 @@ router.get('/attendance/v2/analytics', attendanceV2.getDepartmentAnalytics);
 router.get('/attendance/v2/low-attendance', attendanceV2.getLowAttendanceStudents);
 router.get('/attendance/v2/export', attendanceV2.exportAttendanceReport);
 
+// ==================== FACULTY ATTENDANCE SYSTEM ====================
+const facultyAttendance = require('../controllers/facultyAttendanceController');
+
+router.get('/faculty-attendance/today', facultyAttendance.getTodayAttendance);
+router.get('/faculty-attendance/analytics', facultyAttendance.getAttendanceAnalytics);
+router.get('/faculty-attendance/faculty/:facultyId', facultyAttendance.getFacultyAttendance);
+router.put('/faculty-attendance/:id/note', facultyAttendance.updateNote);
+router.post('/faculty-attendance/process-eod', facultyAttendance.processEndOfDay);
+
 module.exports = router;
 

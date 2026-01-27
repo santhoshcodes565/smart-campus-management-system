@@ -86,7 +86,8 @@ const Sidebar = () => {
                     { path: '/admin/notices', icon: FiBell, label: 'Notices' },
                     { path: '/admin/feedback', icon: FiMessageSquare, label: 'Feedback' },
                     { path: '/admin/exam-analytics', icon: FiTrendingUp, label: 'Exam Analytics' },
-                    { path: '/admin/attendance-analytics', icon: FiCheckSquare, label: 'Attendance' },
+                    { path: '/admin/attendance-analytics', icon: FiCheckSquare, label: 'Student Attendance' },
+                    { path: '/admin/faculty-attendance', icon: FiClock, label: 'Faculty Attendance' },
                     { path: '/admin/reports', icon: FiBarChart2, label: 'Reports' },
                     { path: '/admin/settings', icon: FiSettings, label: 'Settings' },
                 ];
@@ -98,6 +99,7 @@ const Sidebar = () => {
                     { path: '/faculty/online-exams', icon: FiEdit3, label: 'Online Exams' },
                     { path: '/faculty/students', icon: FiUsers, label: 'Student List' },
                     { path: '/faculty/timetable', icon: FiCalendar, label: 'Timetable' },
+                    { path: '/faculty/my-attendance', icon: FiClock, label: 'My Attendance' },
                     { path: '/faculty/leaves', icon: FiClock, label: 'Leave Requests', badge: leaveStats.pendingStudentLeaves },
                     { path: '/faculty/apply-leave', icon: FiFileText, label: 'Apply Leave', badge: leaveStats.myPending > 0 ? `${leaveStats.myPending} pending` : null },
                     { path: '/faculty/notices', icon: FiBell, label: 'Post Notice' },

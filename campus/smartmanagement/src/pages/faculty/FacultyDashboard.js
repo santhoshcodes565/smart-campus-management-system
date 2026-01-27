@@ -8,7 +8,10 @@ import { useSocket } from '../../context/SocketContext';
 import StatCard from '../../components/common/StatCard';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { SkeletonStats } from '../../components/common/LoadingSpinner';
-import { FiCalendar, FiCheckSquare, FiClock, FiBell, FiUsers, FiClipboard, FiArrowRight } from 'react-icons/fi';
+import {
+    FiCalendar, FiCheckSquare, FiClock, FiBell, FiUsers, FiClipboard,
+    FiArrowRight, FiLogIn, FiLogOut, FiEdit3
+} from 'react-icons/fi';
 
 const FacultyDashboard = () => {
     const { user } = useAuth();
@@ -17,6 +20,21 @@ const FacultyDashboard = () => {
     const [stats, setStats] = useState(null);
     const [todayClasses, setTodayClasses] = useState([]);
     const [recentLeaves, setRecentLeaves] = useState([]);
+
+    // Attendance state
+    const [attendanceStatus, setAttendanceStatus] = useState({
+        hasCheckedIn: false,
+        hasCheckedOut: false,
+        checkInTime: null,
+        checkOutTime: null,
+        formattedCheckIn: null,
+        formattedCheckOut: null,
+        totalWorkingHours: 0
+    });
+    const [attendanceLoading, setAttendanceLoading] = useState(false);
+    const [showNoteModal, setShowNoteModal] = useState(false);
+    const [noteAction, setNoteAction] = useState(null); // 'check-in' or 'check-out'
+    const [note, setNote] = useState('');
 
     const attendanceData = [
         { name: 'Mon', attendance: 92 },
@@ -28,6 +46,7 @@ const FacultyDashboard = () => {
 
     useEffect(() => {
         fetchDashboardData();
+        fetchAttendanceStatus();
     }, []);
 
     const fetchDashboardData = async () => {
@@ -62,9 +81,185 @@ const FacultyDashboard = () => {
         }
     };
 
+    const fetchAttendanceStatus = async () => {
+        try {
+            const response = await facultyAPI.facultyAttendance.getStatus();
+            if (response.data.success) {
+                setAttendanceStatus(response.data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching attendance status:', error);
+        }
+    };
+
+    const handleCheckIn = async (withNote = false) => {
+        if (withNote && !showNoteModal) {
+            setNoteAction('check-in');
+            setShowNoteModal(true);
+            return;
+        }
+
+        try {
+            setAttendanceLoading(true);
+            const response = await facultyAPI.facultyAttendance.checkIn(note);
+            if (response.data.success) {
+                toast.success('✅ Check-in successful!');
+                setAttendanceStatus(prev => ({
+                    ...prev,
+                    hasCheckedIn: true,
+                    checkInTime: response.data.data.checkInTime,
+                    formattedCheckIn: response.data.data.formattedCheckIn
+                }));
+                setShowNoteModal(false);
+                setNote('');
+            }
+        } catch (error) {
+            toast.error(error.message || 'Check-in failed');
+        } finally {
+            setAttendanceLoading(false);
+        }
+    };
+
+    const handleCheckOut = async (withNote = false) => {
+        if (withNote && !showNoteModal) {
+            setNoteAction('check-out');
+            setShowNoteModal(true);
+            return;
+        }
+
+        try {
+            setAttendanceLoading(true);
+            const response = await facultyAPI.facultyAttendance.checkOut(note);
+            if (response.data.success) {
+                toast.success('✅ Check-out successful!');
+                setAttendanceStatus(prev => ({
+                    ...prev,
+                    hasCheckedOut: true,
+                    checkOutTime: response.data.data.checkOutTime,
+                    formattedCheckOut: response.data.data.formattedCheckOut,
+                    totalWorkingHours: response.data.data.totalWorkingHours
+                }));
+                setShowNoteModal(false);
+                setNote('');
+            }
+        } catch (error) {
+            toast.error(error.message || 'Check-out failed');
+        } finally {
+            setAttendanceLoading(false);
+        }
+    };
+
+    const handleNoteSubmit = () => {
+        if (noteAction === 'check-in') {
+            handleCheckIn(false);
+        } else if (noteAction === 'check-out') {
+            handleCheckOut(false);
+        }
+    };
+
     return (
         <div className="animate-fade-in">
             <Breadcrumb items={[{ label: 'Dashboard', path: '/faculty/dashboard', isLast: true }]} />
+
+            {/* ==================== CHECK-IN / CHECK-OUT CONTROLS ==================== */}
+            <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-xl p-6 mb-6 shadow-lg">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    {/* Status Display */}
+                    <div className="text-white">
+                        <h2 className="text-xl font-semibold mb-1">Today's Attendance</h2>
+                        {attendanceStatus.hasCheckedIn ? (
+                            <div className="flex items-center gap-2">
+                                <span className="w-3 h-3 rounded-full bg-green-400 animate-pulse"></span>
+                                <span>Checked in at <strong>{attendanceStatus.formattedCheckIn}</strong></span>
+                                {attendanceStatus.hasCheckedOut && (
+                                    <span className="ml-2">
+                                        | Checked out at <strong>{attendanceStatus.formattedCheckOut}</strong>
+                                        <span className="ml-2 px-2 py-0.5 bg-white/20 rounded text-sm">
+                                            {attendanceStatus.totalWorkingHours?.toFixed(2)} hrs
+                                        </span>
+                                    </span>
+                                )}
+                            </div>
+                        ) : (
+                            <p className="text-white/80">You haven't checked in yet today</p>
+                        )}
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => handleCheckIn(true)}
+                            disabled={attendanceStatus.hasCheckedIn || attendanceLoading}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${attendanceStatus.hasCheckedIn
+                                    ? 'bg-white/20 text-white/50 cursor-not-allowed'
+                                    : 'bg-white text-primary-600 hover:bg-gray-100 shadow-md hover:shadow-lg'
+                                }`}
+                        >
+                            <FiLogIn size={20} />
+                            {attendanceLoading && noteAction === 'check-in' ? 'Processing...' : 'CHECK-IN'}
+                        </button>
+                        <button
+                            onClick={() => handleCheckOut(true)}
+                            disabled={!attendanceStatus.hasCheckedIn || attendanceStatus.hasCheckedOut || attendanceLoading}
+                            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${!attendanceStatus.hasCheckedIn || attendanceStatus.hasCheckedOut
+                                    ? 'bg-white/20 text-white/50 cursor-not-allowed'
+                                    : 'bg-white text-danger-600 hover:bg-gray-100 shadow-md hover:shadow-lg'
+                                }`}
+                        >
+                            <FiLogOut size={20} />
+                            {attendanceLoading && noteAction === 'check-out' ? 'Processing...' : 'CHECK-OUT'}
+                        </button>
+                        <Link
+                            to="/faculty/my-attendance"
+                            className="flex items-center gap-2 px-4 py-3 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-all"
+                        >
+                            <FiClock size={18} />
+                            View History
+                        </Link>
+                    </div>
+                </div>
+            </div>
+
+            {/* Note Modal */}
+            {showNoteModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4 shadow-2xl">
+                        <h3 className="text-lg font-semibold text-secondary-800 mb-4">
+                            {noteAction === 'check-in' ? 'Add Check-in Note' : 'Add Check-out Note'}
+                        </h3>
+                        <p className="text-secondary-500 text-sm mb-4">
+                            Optional: Add a note for your {noteAction} (e.g., late arrival reason, early departure)
+                        </p>
+                        <textarea
+                            value={note}
+                            onChange={(e) => setNote(e.target.value)}
+                            placeholder="Enter optional note..."
+                            className="w-full p-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+                            rows={3}
+                            maxLength={500}
+                        />
+                        <p className="text-xs text-secondary-400 mt-1 mb-4">{note.length}/500 characters</p>
+                        <div className="flex gap-3 justify-end">
+                            <button
+                                onClick={() => {
+                                    setShowNoteModal(false);
+                                    setNote('');
+                                }}
+                                className="px-4 py-2 text-secondary-600 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleNoteSubmit}
+                                disabled={attendanceLoading}
+                                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
+                            >
+                                {attendanceLoading ? 'Processing...' : `Confirm ${noteAction === 'check-in' ? 'Check-in' : 'Check-out'}`}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
@@ -216,8 +411,8 @@ const FacultyDashboard = () => {
             {/* Quick Actions */}
             <div className="mt-6 card">
                 <h3 className="card-title mb-4">Quick Actions</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <Link to="/faculty/attendance" className="flex flex-col items-center gap-2 p-4 rounded-lg bg-gray-50 hover:bg-primary-50 hover:text-primary-600 transition-colors">
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    <Link to="/faculty/attendance-v2" className="flex flex-col items-center gap-2 p-4 rounded-lg bg-gray-50 hover:bg-primary-50 hover:text-primary-600 transition-colors">
                         <FiCheckSquare size={24} />
                         <span className="text-sm font-medium">Mark Attendance</span>
                     </Link>
@@ -232,6 +427,10 @@ const FacultyDashboard = () => {
                     <Link to="/faculty/notices" className="flex flex-col items-center gap-2 p-4 rounded-lg bg-gray-50 hover:bg-primary-50 hover:text-primary-600 transition-colors">
                         <FiBell size={24} />
                         <span className="text-sm font-medium">Post Notice</span>
+                    </Link>
+                    <Link to="/faculty/my-attendance" className="flex flex-col items-center gap-2 p-4 rounded-lg bg-gray-50 hover:bg-primary-50 hover:text-primary-600 transition-colors">
+                        <FiCalendar size={24} />
+                        <span className="text-sm font-medium">My Attendance</span>
                     </Link>
                 </div>
             </div>

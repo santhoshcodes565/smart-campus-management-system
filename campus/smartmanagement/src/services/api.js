@@ -176,6 +176,15 @@ export const facultyAPI = {
     getLeaveStats: () => api.get('/faculty/leave/stats'),
     approveStudentLeave: (id, data) => api.put(`/faculty/leave/${id}/approve`, data),
     rejectStudentLeave: (id, data) => api.put(`/faculty/leave/${id}/reject`, data),
+
+    // Faculty Self Attendance (Check-in/Check-out)
+    facultyAttendance: {
+        checkIn: (note) => api.post('/faculty/attendance/check-in', { note }),
+        checkOut: (note) => api.post('/faculty/attendance/check-out', { note }),
+        getStatus: () => api.get('/faculty/attendance/status'),
+        getSummary: (params) => api.get('/faculty/attendance/summary', { params }),
+        getHistory: (params) => api.get('/faculty/attendance/history', { params }),
+    },
 };
 
 // Admin API
@@ -360,6 +369,15 @@ export const adminAPI = {
 
     // DOB Management
     updateUserDOB: (userId, dateOfBirth) => api.put(`/admin/users/${userId}/dob`, { dateOfBirth }),
+
+    // Faculty Attendance Management (Admin)
+    facultyAttendance: {
+        getToday: () => api.get('/admin/faculty-attendance/today'),
+        getAnalytics: (params) => api.get('/admin/faculty-attendance/analytics', { params }),
+        getFacultyRecords: (facultyId, params) => api.get(`/admin/faculty-attendance/faculty/${facultyId}`, { params }),
+        updateNote: (id, note) => api.put(`/admin/faculty-attendance/${id}/note`, { note }),
+        processEndOfDay: () => api.post('/admin/faculty-attendance/process-eod'),
+    },
 };
 
 // Birthday Intelligence API
@@ -372,6 +390,67 @@ export const birthdayAPI = {
     getStats: () => api.get('/birthdays/stats'),
     // Get users missing DOB (admin only, for migration)
     getUsersMissingDOB: () => api.get('/birthdays/missing-dob'),
+};
+
+// ==================== FEE MANAGEMENT API ====================
+export const feeAPI = {
+    // Admin - Fee Structures
+    structures: {
+        getAll: (params) => api.get('/fees/structures', { params }),
+        get: (id) => api.get(`/fees/structures/${id}`),
+        create: (data) => api.post('/fees/structures', data),
+        update: (id, data) => api.put(`/fees/structures/${id}`, data),
+        approve: (id, remarks) => api.put(`/fees/structures/${id}/approve`, { remarks }),
+        activate: (id) => api.put(`/fees/structures/${id}/activate`),
+        archive: (id) => api.put(`/fees/structures/${id}/archive`),
+        createVersion: (id) => api.post(`/fees/structures/${id}/version`),
+        getFeeHeads: () => api.get('/fees/structures/fee-heads'),
+    },
+
+    // Admin - Student Ledgers
+    ledgers: {
+        getAll: (params) => api.get('/fees/ledgers', { params }),
+        get: (id) => api.get(`/fees/ledgers/${id}`),
+        create: (data) => api.post('/fees/ledgers', data),
+        bulkAssign: (data) => api.post('/fees/ledgers/bulk-assign', data),
+        getByStudent: (studentId, params) => api.get(`/fees/ledgers/student/${studentId}`, { params }),
+        close: (id, reason) => api.put(`/fees/ledgers/${id}/close`, { reason }),
+        getAcademicYears: () => api.get('/fees/ledgers/academic-years'),
+    },
+
+    // Admin - Receipts
+    receipts: {
+        getAll: (params) => api.get('/fees/receipts', { params }),
+        get: (id) => api.get(`/fees/receipts/${id}`),
+        create: (data) => api.post('/fees/receipts', data),
+        reverse: (id, reason) => api.post(`/fees/receipts/${id}/reverse`, { reason }),
+        verify: (id) => api.put(`/fees/receipts/${id}/verify`),
+        getByNumber: (receiptNumber) => api.get(`/fees/receipts/number/${receiptNumber}`),
+        getByLedger: (ledgerId) => api.get(`/fees/receipts/ledger/${ledgerId}`),
+        getToday: () => api.get('/fees/receipts/today'),
+    },
+
+    // Admin - Dashboard & Reports
+    dashboard: {
+        get: (params) => api.get('/fees/dashboard', { params }),
+    },
+    reports: {
+        getSummary: (params) => api.get('/fees/reports/summary', { params }),
+        getAging: (params) => api.get('/fees/reports/aging', { params }),
+        getCollection: (params) => api.get('/fees/reports/collection', { params }),
+        getDefaulters: (params) => api.get('/fees/reports/defaulters', { params }),
+        getDepartment: (deptId, params) => api.get(`/fees/reports/department/${deptId}`, { params }),
+        getStudentLedger: (studentId, params) => api.get(`/fees/reports/student/${studentId}`, { params }),
+        export: (type, params) => api.get(`/fees/reports/export/${type}`, { params }),
+        getAudit: (params) => api.get('/fees/reports/audit', { params }),
+    },
+
+    // Student - Read Only
+    student: {
+        getLedger: () => api.get('/fees/student/ledger'),
+        getSummary: () => api.get('/fees/student/summary'),
+        getReceipts: () => api.get('/fees/student/receipts'),
+    },
 };
 
 export default api;

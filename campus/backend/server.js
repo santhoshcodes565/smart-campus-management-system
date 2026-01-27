@@ -93,6 +93,8 @@ app.use('/api/student', require('./routes/studentRoutes'));
 app.use('/api/faculty', require('./routes/facultyRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/birthdays', require('./routes/birthdayRoutes'));
+app.use('/api/fees', require('./routes/feeRoutes'));
+
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

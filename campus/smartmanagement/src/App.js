@@ -31,6 +31,11 @@ import ManageFaculty from './pages/admin/ManageFaculty';
 import ManageTimetable from './pages/admin/ManageTimetable';
 import ManageFees from './pages/admin/ManageFees';
 import ManageTransport from './pages/admin/ManageTransport';
+// Fee Management V2 (Institutional Fees Accounting)
+import AdminFeeDashboard from './pages/admin/fees/AdminFeeDashboard';
+import AdminFeeStructures from './pages/admin/fees/AdminFeeStructures';
+import AdminFeeLedgers from './pages/admin/fees/AdminFeeLedgers';
+import AdminFeeReceipts from './pages/admin/fees/AdminFeeReceipts';
 import AdminNotices from './pages/admin/AdminNotices';
 import Reports from './pages/admin/Reports';
 // Academic Master Management Pages
@@ -67,6 +72,8 @@ import FacultyExamResults from './pages/faculty/FacultyExamResults';
 import FacultyFeedback from './pages/faculty/FacultyFeedback';
 import FacultyAttendanceV2 from './pages/faculty/FacultyAttendanceV2';
 import FacultyApplyLeave from './pages/faculty/ApplyLeave';
+// Faculty Self Attendance
+import FacultyAttendanceSummary from './pages/faculty/FacultyAttendanceSummary';
 
 // Student Pages
 import StudentDashboard from './pages/student/StudentDashboard';
@@ -84,6 +91,9 @@ import StudentNotices from './pages/student/StudentNotices';
 import StudentAttendanceV2 from './pages/student/StudentAttendanceV2';
 // Admin Attendance V2
 import AdminAttendanceAnalytics from './pages/admin/AdminAttendanceAnalytics';
+// Admin Faculty Attendance
+import AdminFacultyAttendance from './pages/admin/AdminFacultyAttendance';
+import AdminFacultyAttendanceAnalytics from './pages/admin/AdminFacultyAttendanceAnalytics';
 // Admin Leave Management
 import ManageLeaves from './pages/admin/ManageLeaves';
 
@@ -136,7 +146,10 @@ function App() {
                   <Route path="students" element={<ManageStudents />} />
                   <Route path="faculty" element={<ManageFaculty />} />
                   <Route path="timetable" element={<ManageTimetable />} />
-                  <Route path="fees" element={<ManageFees />} />
+                  <Route path="fees" element={<AdminFeeDashboard />} />
+                  <Route path="fees/structures" element={<AdminFeeStructures />} />
+                  <Route path="fees/ledgers" element={<AdminFeeLedgers />} />
+                  <Route path="fees/receipts" element={<AdminFeeReceipts />} />
                   <Route path="transport" element={<ManageTransport />} />
                   <Route path="notices" element={<AdminNotices />} />
                   <Route path="reports" element={<Reports />} />
@@ -149,6 +162,9 @@ function App() {
                   <Route path="exam-analytics" element={<AdminExamAnalyticsV2 />} />
                   {/* Attendance V2 */}
                   <Route path="attendance-analytics" element={<AdminAttendanceAnalytics />} />
+                  {/* Faculty Attendance */}
+                  <Route path="faculty-attendance" element={<AdminFacultyAttendance />} />
+                  <Route path="faculty-attendance-analytics" element={<AdminFacultyAttendanceAnalytics />} />
                   {/* Leave Management */}
                   <Route path="leaves" element={<ManageLeaves />} />
                   {/* Admin Settings V2 */}
@@ -190,6 +206,8 @@ function App() {
                   <Route path="feedback" element={<FacultyFeedback />} />
                   {/* Attendance V2 */}
                   <Route path="attendance-v2" element={<FacultyAttendanceV2 />} />
+                  {/* Faculty Self Attendance */}
+                  <Route path="my-attendance" element={<FacultyAttendanceSummary />} />
                   {/* Leave Management */}
                   <Route path="apply-leave" element={<FacultyApplyLeave />} />
                 </Route>

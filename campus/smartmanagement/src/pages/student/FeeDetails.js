@@ -1,158 +1,304 @@
-import React, { useState, useEffect } from 'react';
-import { studentAPI } from '../../services/api';
-import Breadcrumb from '../../components/common/Breadcrumb';
-import EmptyState from '../../components/common/EmptyState';
-import { SkeletonStats, SkeletonTable } from '../../components/common/LoadingSpinner';
-import { FiDollarSign, FiCalendar, FiDownload, FiCheckCircle, FiClock, FiAlertCircle } from 'react-icons/fi';
+import React, { useState, useEffect, useCallback } from 'react';
+import { feeAPI } from '../../services/api';
+import { toast } from 'react-toastify';
+import {
+    FiDollarSign, FiFileText, FiCalendar, FiAlertTriangle,
+    FiCheck, FiClock, FiInfo
+} from 'react-icons/fi';
+import './FeeDetails.css';
 
+/**
+ * Student Fee Details - READ ONLY
+ * Students can view:
+ * - Fee structure breakup
+ * - Ledger summary
+ * - Payment history
+ * - Outstanding balance
+ * - Due dates
+ * 
+ * NO PAYMENT FUNCTIONALITY - Accounting ledger only
+ */
 const FeeDetails = () => {
-    const [fees, setFees] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [summary, setSummary] = useState({ total: 0, paid: 0, pending: 0 });
+    const [summary, setSummary] = useState(null);
+    const [ledgers, setLedgers] = useState([]);
+    const [receipts, setReceipts] = useState([]);
+    const [selectedLedger, setSelectedLedger] = useState(null);
 
-    useEffect(() => {
-        fetchFees();
-    }, []);
-
-    const fetchFees = async () => {
+    const fetchFeeData = useCallback(async () => {
         try {
             setLoading(true);
-            const response = await studentAPI.getFees();
-            if (response.data.success) {
-                setFees(response.data.data);
-                // Calculate summary
-                const total = response.data.data.reduce((sum, f) => sum + f.amount, 0);
-                const paid = response.data.data.filter(f => f.status === 'paid').reduce((sum, f) => sum + f.amount, 0);
-                setSummary({
-                    total,
-                    paid,
-                    pending: total - paid
-                });
+            const [summaryRes, ledgerRes, receiptsRes] = await Promise.all([
+                feeAPI.student.getSummary(),
+                feeAPI.student.getLedger(),
+                feeAPI.student.getReceipts()
+            ]);
+
+            setSummary(summaryRes.data.data?.summary || null);
+            setLedgers(ledgerRes.data.data?.ledgers || []);
+            setReceipts(receiptsRes.data.data?.receipts || []);
+
+            // Select the first active ledger by default
+            if (ledgerRes.data.data?.ledgers?.length > 0) {
+                setSelectedLedger(ledgerRes.data.data.ledgers[0]);
             }
         } catch (error) {
-            console.error('Error fetching fees:', error);
-            // Fallback
-            setFees([
-                { _id: '1', title: 'Tuition Fee - Semester 5', amount: 45000, dueDate: '2023-12-31', status: 'paid', paidDate: '2023-12-28', receiptNo: 'RCP-8821' },
-                { _id: '2', title: 'Exam Fee - Sem 5', amount: 2500, dueDate: '2024-01-15', status: 'pending' },
-                { _id: '3', title: 'Library Fee', amount: 500, dueDate: '2024-01-31', status: 'pending' },
-            ]);
-            setSummary({ total: 48000, paid: 45000, pending: 3000 });
+            toast.error(error.message || 'Failed to load fee details');
         } finally {
             setLoading(false);
         }
+    }, []);
+
+    useEffect(() => {
+        fetchFeeData();
+    }, [fetchFeeData]);
+
+    const formatCurrency = (amount) => {
+        return new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+            maximumFractionDigits: 0
+        }).format(amount || 0);
     };
 
+    const getStatusBadge = (status) => {
+        const config = {
+            PAID: { class: 'status-paid', icon: <FiCheck />, text: 'Fully Paid' },
+            PARTIALLY_PAID: { class: 'status-partial', icon: <FiClock />, text: 'Partially Paid' },
+            UNPAID: { class: 'status-unpaid', icon: <FiInfo />, text: 'Unpaid' },
+            OVERDUE: { class: 'status-overdue', icon: <FiAlertTriangle />, text: 'Overdue' }
+        };
+        const s = config[status] || config.UNPAID;
+        return (
+            <span className={`status-badge ${s.class}`}>
+                {s.icon} {s.text}
+            </span>
+        );
+    };
+
+    if (loading) {
+        return (
+            <div className="fee-details-loading">
+                <div className="spinner"></div>
+                <p>Loading your fee details...</p>
+            </div>
+        );
+    }
+
     return (
-        <div className="animate-fade-in">
-            <Breadcrumb items={[{ label: 'Dashboard', path: '/student/dashboard' }, { label: 'Fee Details', path: '/student/fees', isLast: true }]} />
-
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-                <div>
-                    <h1 className="text-2xl font-bold text-secondary-800">Fee Management</h1>
-                    <p className="text-secondary-500 mt-1">Track your payments, dues and download receipts</p>
-                </div>
-                <button className="btn-primary mt-4 md:mt-0">
-                    Pay Online
-                </button>
+        <div className="student-fee-details">
+            {/* Header */}
+            <div className="page-header">
+                <h1><FiDollarSign /> My Fee Details</h1>
+                <p>View your fee structure, payments, and outstanding balance</p>
             </div>
 
-            {/* Summary Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="card">
-                    <p className="text-sm font-medium text-secondary-500 mb-1">Total Academic Fee</p>
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-2xl font-bold text-secondary-800">₹{summary.total.toLocaleString()}</h2>
-                        <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
-                            <FiDollarSign />
+            {/* Summary Cards */}
+            {summary && (
+                <div className="summary-cards">
+                    <div className="summary-card total-approved">
+                        <div className="card-icon"><FiFileText /></div>
+                        <div className="card-content">
+                            <span className="label">Total Approved Fee</span>
+                            <span className="value">{formatCurrency(summary.totalApproved)}</span>
                         </div>
                     </div>
-                </div>
-                <div className="card">
-                    <p className="text-sm font-medium text-secondary-500 mb-1">Total Paid</p>
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-2xl font-bold text-success-600">₹{summary.paid.toLocaleString()}</h2>
-                        <div className="w-10 h-10 rounded-full bg-success-50 text-success-600 flex items-center justify-center">
-                            <FiCheckCircle />
+                    <div className="summary-card total-paid">
+                        <div className="card-icon"><FiCheck /></div>
+                        <div className="card-content">
+                            <span className="label">Total Paid</span>
+                            <span className="value">{formatCurrency(summary.totalPaid)}</span>
                         </div>
                     </div>
-                </div>
-                <div className="card">
-                    <p className="text-sm font-medium text-secondary-500 mb-1">Pending Balance</p>
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-2xl font-bold text-danger-600">₹{summary.pending.toLocaleString()}</h2>
-                        <div className="w-10 h-10 rounded-full bg-danger-50 text-danger-600 flex items-center justify-center">
-                            <FiAlertCircle />
+                    <div className="summary-card outstanding">
+                        <div className="card-icon"><FiClock /></div>
+                        <div className="card-content">
+                            <span className="label">Outstanding Balance</span>
+                            <span className="value">{formatCurrency(summary.totalOutstanding)}</span>
                         </div>
                     </div>
+                    {summary.totalOverdue > 0 && (
+                        <div className="summary-card overdue">
+                            <div className="card-icon"><FiAlertTriangle /></div>
+                            <div className="card-content">
+                                <span className="label">Overdue Amount</span>
+                                <span className="value">{formatCurrency(summary.totalOverdue)}</span>
+                            </div>
+                        </div>
+                    )}
                 </div>
-            </div>
+            )}
 
-            {/* Fee Table */}
-            <div className="card">
-                <div className="card-header">
-                    <h3 className="card-title">Billing History</h3>
-                </div>
-                {loading ? (
-                    <SkeletonTable rows={3} />
-                ) : (
-                    <div className="table-container border-none shadow-none">
-                        <table className="table">
-                            <thead>
-                                <tr>
-                                    <th>Description</th>
-                                    <th>Amount</th>
-                                    <th>Due Date</th>
-                                    <th>Status</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {fees.map((fee) => (
-                                    <tr key={fee._id}>
-                                        <td>
-                                            <div className="font-semibold text-secondary-800">{fee.title}</div>
-                                            {fee.receiptNo && <div className="text-xs text-secondary-400">Receipt: {fee.receiptNo}</div>}
-                                        </td>
-                                        <td className="font-bold text-secondary-800">₹{fee.amount.toLocaleString()}</td>
-                                        <td className="text-secondary-600">
-                                            {new Date(fee.dueDate).toLocaleDateString()}
-                                        </td>
-                                        <td>
-                                            <span className={`badge ${fee.status === 'paid' ? 'badge-success' : 'badge-warning'}`}>
-                                                {fee.status.toUpperCase()}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            {fee.status === 'paid' ? (
-                                                <button className="flex items-center gap-1 text-primary-600 hover:text-primary-700 text-sm font-medium">
-                                                    <FiDownload size={14} /> Receipt
-                                                </button>
-                                            ) : (
-                                                <button className="text-primary-600 hover:text-primary-700 text-sm font-medium">
-                                                    Pay Now
-                                                </button>
-                                            )}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+            {/* Main Content */}
+            <div className="fee-content">
+                {/* Ledger Selector */}
+                {ledgers.length > 0 && (
+                    <div className="ledger-selector">
+                        <h3>Select Academic Period</h3>
+                        <div className="ledger-tabs">
+                            {ledgers.map(ledger => (
+                                <button
+                                    key={ledger._id}
+                                    className={`ledger-tab ${selectedLedger?._id === ledger._id ? 'active' : ''}`}
+                                    onClick={() => setSelectedLedger(ledger)}
+                                >
+                                    <span className="year">{ledger.academicYear}</span>
+                                    {ledger.semester && <span className="sem">Sem {ledger.semester}</span>}
+                                    {getStatusBadge(ledger.feeStatus)}
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
+
+                {/* Selected Ledger Details */}
+                {selectedLedger ? (
+                    <div className="ledger-details">
+                        {/* Status Banner */}
+                        <div className={`status-banner ${selectedLedger.feeStatus?.toLowerCase()}`}>
+                            <div className="status-info">
+                                {getStatusBadge(selectedLedger.feeStatus)}
+                                {selectedLedger.isOverdue && (
+                                    <span className="overdue-warning">
+                                        <FiAlertTriangle /> {selectedLedger.overdueDays || 0} days overdue
+                                    </span>
+                                )}
+                            </div>
+                            {selectedLedger.dueDate && (
+                                <div className="due-date">
+                                    <FiCalendar />
+                                    <span>Due: {new Date(selectedLedger.dueDate).toLocaleDateString()}</span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Fee Breakup */}
+                        <div className="section fee-breakup">
+                            <h3><FiFileText /> Fee Breakup</h3>
+                            <div className="breakup-table">
+                                <div className="breakup-header">
+                                    <span>Fee Head</span>
+                                    <span>Amount</span>
+                                </div>
+                                {selectedLedger.feeHeads?.map((head, idx) => (
+                                    <div key={idx} className={`breakup-row ${!head.isApplicable ? 'not-applicable' : ''}`}>
+                                        <span className="head-name">
+                                            {head.headName}
+                                            {head.isOptional && <span className="optional-tag">(Optional)</span>}
+                                        </span>
+                                        <span className="head-amount">
+                                            {head.isApplicable ? formatCurrency(head.amount) : 'N/A'}
+                                        </span>
+                                    </div>
+                                ))}
+                                <div className="breakup-row total-row">
+                                    <span>Approved Total</span>
+                                    <span>{formatCurrency(selectedLedger.approvedTotal)}</span>
+                                </div>
+                                {selectedLedger.concessionAmount > 0 && (
+                                    <div className="breakup-row concession-row">
+                                        <span>
+                                            Concession
+                                            {selectedLedger.concessionReason && (
+                                                <span className="concession-reason">({selectedLedger.concessionReason})</span>
+                                            )}
+                                        </span>
+                                        <span>- {formatCurrency(selectedLedger.concessionAmount)}</span>
+                                    </div>
+                                )}
+                                <div className="breakup-row net-row">
+                                    <span>Net Payable</span>
+                                    <span>{formatCurrency(selectedLedger.netPayable)}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Payment Summary */}
+                        <div className="section payment-summary">
+                            <h3><FiDollarSign /> Payment Summary</h3>
+                            <div className="payment-grid">
+                                <div className="payment-item">
+                                    <span className="label">Net Payable</span>
+                                    <span className="value">{formatCurrency(selectedLedger.netPayable)}</span>
+                                </div>
+                                <div className="payment-item paid">
+                                    <span className="label">Amount Paid</span>
+                                    <span className="value">{formatCurrency(selectedLedger.totalPaid)}</span>
+                                </div>
+                                <div className="payment-item outstanding">
+                                    <span className="label">Outstanding</span>
+                                    <span className="value">{formatCurrency(selectedLedger.outstandingBalance)}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Installments */}
+                        {selectedLedger.hasInstallments && selectedLedger.installments?.length > 0 && (
+                            <div className="section installments">
+                                <h3><FiCalendar /> Installment Schedule</h3>
+                                <div className="installment-list">
+                                    {selectedLedger.installments.map((inst, idx) => (
+                                        <div key={idx} className={`installment-item ${inst.status?.toLowerCase()}`}>
+                                            <div className="inst-info">
+                                                <span className="inst-no">Installment {inst.installmentNo}</span>
+                                                <span className="inst-desc">{inst.description}</span>
+                                            </div>
+                                            <div className="inst-details">
+                                                <span className="inst-amount">{formatCurrency(inst.amount)}</span>
+                                                <span className="inst-due">Due: {new Date(inst.dueDate).toLocaleDateString()}</span>
+                                                <span className={`inst-status ${inst.status?.toLowerCase()}`}>
+                                                    {inst.status}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="no-ledger">
+                        <FiInfo />
+                        <p>No fee ledger found for your account.</p>
+                        <span>Please contact the administration office for assistance.</span>
+                    </div>
+                )}
+
+                {/* Payment History */}
+                <div className="section payment-history">
+                    <h3><FiFileText /> Payment History</h3>
+                    {receipts.length > 0 ? (
+                        <div className="receipts-list">
+                            {receipts.map(receipt => (
+                                <div key={receipt._id} className="receipt-item">
+                                    <div className="receipt-left">
+                                        <span className="receipt-number">{receipt.receiptNumber}</span>
+                                        <span className="receipt-date">
+                                            {new Date(receipt.receiptDate).toLocaleDateString()}
+                                        </span>
+                                    </div>
+                                    <div className="receipt-right">
+                                        <span className="receipt-amount">{formatCurrency(receipt.amount)}</span>
+                                        <span className="receipt-mode">{receipt.paymentMode?.replace('_', ' ')}</span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="no-receipts">
+                            <p>No payment receipts found</p>
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* Payment Info */}
-            <div className="mt-6 p-4 rounded-xl bg-primary-50 border border-primary-100 flex items-start gap-4">
-                <div className="p-2 rounded-lg bg-white text-primary-600 shadow-sm mt-1">
-                    <FiClock />
-                </div>
-                <div>
-                    <h4 className="font-bold text-primary-800">Late Payment Policy</h4>
-                    <p className="text-sm text-primary-700 mt-1">
-                        Any payments made after the due date will attract a late fee of ₹50 per day. Please ensure all dues are cleared to avoid restrictions during exams.
-                    </p>
-                </div>
+            {/* Info Notice */}
+            <div className="info-notice">
+                <FiInfo />
+                <p>
+                    This is a read-only view of your fee records. For any queries or to make a payment,
+                    please visit the Finance Office during working hours.
+                </p>
             </div>
         </div>
     );

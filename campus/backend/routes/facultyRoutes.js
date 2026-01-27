@@ -159,4 +159,13 @@ router.get('/attendance/v2/students', attendanceV2.getAttendanceStudents);
 router.post('/attendance/v2/mark', attendanceV2.markAttendance);
 router.get('/attendance/v2/history', attendanceV2.getMyAttendanceHistory);
 
+// ==================== FACULTY SELF ATTENDANCE (Check-in/Check-out) ====================
+const facultyAttendance = require('../controllers/facultyAttendanceController');
+
+router.post('/attendance/check-in', facultyAttendance.checkIn);
+router.post('/attendance/check-out', facultyAttendance.checkOut);
+router.get('/attendance/status', facultyAttendance.getTodayStatus);
+router.get('/attendance/summary', facultyAttendance.getAttendanceSummary);
+router.get('/attendance/history', facultyAttendance.getAttendanceHistory);
+
 module.exports = router;
