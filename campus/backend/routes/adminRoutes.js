@@ -359,5 +359,44 @@ router.post('/marks/override/:resultId', canOverride, markController.overrideRes
 // Audit trail
 router.get('/marks/audit/:resultId', markController.getAuditHistory);
 
+// ==================== SIMPLIFIED MARKS ENTRY (Admin-Only) ====================
+const adminMarks = require('../controllers/adminMarksController');
+
+// Filter options
+router.get('/marks-entry/filters', adminMarks.getFilterOptions);
+
+// Students for marks grid
+router.get('/marks-entry/students', adminMarks.getStudentsForMarks);
+
+// Draft management
+router.post('/marks-entry/draft', adminMarks.saveDraft);
+
+// Publish/Reopen flow
+router.post('/marks-entry/publish', adminMarks.publishResults);
+router.post('/marks-entry/reopen', adminMarks.reopenResults);
+
+// Status and audit
+router.get('/marks-entry/status', adminMarks.getPublishStatus);
+router.get('/marks-entry/audit', adminMarks.getAuditHistory);
+// Manual sync for existing data
+router.post('/marks-entry/sync-performance', adminMarks.syncStudentPerformances);
+
+// ==================== SIMPLIFIED ANALYTICS DASHBOARD ====================
+const simplifiedAnalytics = require('../controllers/simplifiedAnalyticsController');
+
+// Main dashboard (< 150ms target)
+router.get('/analytics/dashboard', simplifiedAnalytics.getDashboardOverview);
+
+// Chart endpoints
+router.get('/analytics/grade-distribution', simplifiedAnalytics.getGradeDistribution);
+router.get('/analytics/semester-trend', simplifiedAnalytics.getSemesterTrend);
+router.get('/analytics/subject-difficulty', simplifiedAnalytics.getSubjectDifficulty);
+
+// Subject detail
+router.get('/analytics/subject/:subject', simplifiedAnalytics.getSubjectAnalytics);
+
+// Recent updates
+router.get('/analytics/recent', simplifiedAnalytics.getRecentAnalytics);
+
 module.exports = router;
 

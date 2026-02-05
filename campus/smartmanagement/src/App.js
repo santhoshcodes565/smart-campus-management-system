@@ -109,6 +109,9 @@ import AdminFacultyAttendanceAnalytics from './pages/admin/AdminFacultyAttendanc
 import ManageLeaves from './pages/admin/ManageLeaves';
 // Academic Analytics
 import AdminAcademicAnalytics from './pages/admin/AdminAcademicAnalytics';
+// Simplified Marks Entry & Results Dashboard
+import AdminMarksEntry from './pages/admin/AdminMarksEntry';
+import AdminResultsDashboard from './pages/admin/AdminResultsDashboard';
 
 // Placeholder component for pages not yet created
 const ComingSoon = ({ title }) => (
@@ -182,6 +185,9 @@ function App() {
                   <Route path="leaves" element={<ManageLeaves />} />
                   {/* Academic Analytics */}
                   <Route path="academic-analytics" element={<AdminAcademicAnalytics />} />
+                  {/* Simplified Marks Entry & Results Dashboard */}
+                  <Route path="marks-entry" element={<AdminMarksEntry />} />
+                  <Route path="results-dashboard" element={<AdminResultsDashboard />} />
                   {/* Admin Settings V2 */}
                   <Route path="settings" element={<AdminSettingsLayout />}>
                     <Route index element={<AdminProfile />} />

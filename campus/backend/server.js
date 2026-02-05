@@ -16,6 +16,10 @@ connectDB();
 const { registerEventHandlers } = require('./services/analyticsEventHandler');
 registerEventHandlers();
 
+// Register Simplified Analytics Handlers (Admin-only marks flow)
+const { registerAnalyticsHandlers } = require('./services/analyticsComputeService');
+registerAnalyticsHandlers();
+
 const app = express();
 const server = http.createServer(app);
 
