@@ -3,6 +3,7 @@ const StudentFeeLedger = require('../models/StudentFeeLedger');
 const Student = require('../models/Student');
 const FeeAuditLog = require('../models/FeeAuditLog');
 const FeeAccountingService = require('../services/FeeAccountingService');
+const { emitFeeCollected } = require('../services/dashboardEventManager');
 const asyncHandler = require('express-async-handler');
 
 /**
@@ -57,6 +58,9 @@ const createReceipt = asyncHandler(async (req, res) => {
         req.user,
         { ipAddress: req.ip, userAgent: req.get('User-Agent') }
     );
+
+    // REAL-TIME: Notify dashboard
+    emitFeeCollected(amount);
 
     res.status(201).json({
         success: true,

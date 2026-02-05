@@ -3,6 +3,7 @@ const Student = require('../models/Student');
 const Faculty = require('../models/Faculty');
 const Admin = require('../models/Admin');
 const Timetable = require('../models/Timetable');
+const { emitStudentCreated, emitFacultyCreated } = require('../services/dashboardEventManager');
 const Transport = require('../models/Transport');
 const Fee = require('../models/Fee');
 const Notice = require('../models/Notice');
@@ -52,6 +53,9 @@ const createStudent = async (req, res, next) => {
             courseId: courseId || null,
             batch: batch || ''
         });
+
+        // REAL-TIME: Notify dashboard
+        emitStudentCreated(1);
 
         return successResponse(res, 201, 'Student created successfully', { user: { id: user._id, name, username }, student });
     } catch (error) {
@@ -227,6 +231,9 @@ const createFaculty = async (req, res, next) => {
             subjectIds: subjectIds || [],
             classIds: classIds || []
         });
+
+        // REAL-TIME: Notify dashboard
+        emitFacultyCreated(1);
 
         return successResponse(res, 201, 'Faculty created successfully', { user: { id: user._id, name, username }, faculty });
     } catch (error) {

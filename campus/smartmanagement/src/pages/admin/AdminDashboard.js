@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import {
@@ -10,13 +10,16 @@ import { useSocket } from '../../context/SocketContext';
 import StatCard from '../../components/common/StatCard';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import { SkeletonStats } from '../../components/common/LoadingSpinner';
-import { FiUsers, FiUserCheck, FiDollarSign, FiBell, FiTrendingUp, FiCalendar, FiArrowRight } from 'react-icons/fi';
+import { FiUsers, FiUserCheck, FiDollarSign, FiBell, FiTrendingUp, FiCalendar, FiArrowRight, FiRefreshCw } from 'react-icons/fi';
 
 const AdminDashboard = () => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [recentNotices, setRecentNotices] = useState([]);
-    const { isConnected } = useSocket();
+    const [lastUpdate, setLastUpdate] = useState(null);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const { isConnected, subscribeToEvent } = useSocket();
+    const refreshTimeoutRef = useRef(null);
 
     // Sample attendance data for chart
     const attendanceData = [
@@ -42,18 +45,20 @@ const AdminDashboard = () => {
         { name: 'CIVIL', students: 60 },
     ];
 
-    useEffect(() => {
-        fetchDashboardData();
-    }, []);
-
-    const fetchDashboardData = async () => {
+    // Fetch dashboard data
+    const fetchDashboardData = useCallback(async (showRefreshIndicator = false) => {
         try {
-            setLoading(true);
+            if (showRefreshIndicator) {
+                setIsRefreshing(true);
+            } else {
+                setLoading(true);
+            }
+
             const response = await adminAPI.getDashboard();
-            // Extract data from response - handle { success, data: { overview } } structure
             const data = response.data?.data?.overview || response.data?.data || response.data || {};
             setStats(data);
             setRecentNotices(response.data?.data?.recentNotices || []);
+            setLastUpdate(new Date());
         } catch (error) {
             console.error('Error fetching dashboard:', error);
             // Use fallback data for demo
@@ -66,8 +71,56 @@ const AdminDashboard = () => {
             });
         } finally {
             setLoading(false);
+            setIsRefreshing(false);
         }
-    };
+    }, []);
+
+    // Initial fetch
+    useEffect(() => {
+        fetchDashboardData();
+    }, [fetchDashboardData]);
+
+    // REAL-TIME: Subscribe to dashboard updates
+    useEffect(() => {
+        if (!subscribeToEvent) return;
+
+        const unsubscribe = subscribeToEvent('dashboard:update', (payload) => {
+            console.log('[Dashboard] Real-time update received:', payload.type);
+
+            // Debounce rapid updates (wait 500ms before refetching)
+            if (refreshTimeoutRef.current) {
+                clearTimeout(refreshTimeoutRef.current);
+            }
+
+            refreshTimeoutRef.current = setTimeout(() => {
+                fetchDashboardData(true);
+                toast.info(`Dashboard updated: ${payload.type.replace(/_/g, ' ').toLowerCase()}`, {
+                    position: 'bottom-right',
+                    autoClose: 2000,
+                    hideProgressBar: true,
+                });
+            }, 500);
+        });
+
+        return () => {
+            if (unsubscribe) unsubscribe();
+            if (refreshTimeoutRef.current) {
+                clearTimeout(refreshTimeoutRef.current);
+            }
+        };
+    }, [subscribeToEvent, fetchDashboardData]);
+
+    // Fallback polling (every 60 seconds if socket disconnected)
+    useEffect(() => {
+        if (isConnected) return; // Don't poll if socket is connected
+
+        const pollInterval = setInterval(() => {
+            console.log('[Dashboard] Fallback poll (socket disconnected)');
+            fetchDashboardData(true);
+        }, 60000); // 60 seconds
+
+        return () => clearInterval(pollInterval);
+    }, [isConnected, fetchDashboardData]);
 
     return (
         <div className="animate-fade-in">

@@ -44,15 +44,29 @@ app.use(cors({
     credentials: true
 }));
 
+// Initialize Dashboard Event Manager
+const { initDashboardEvents } = require('./services/dashboardEventManager');
+initDashboardEvents(io);
+
+// Socket Authentication Middleware
+const { authenticateSocket } = require('./middleware/socketAuth');
+io.use(authenticateSocket);
+
 // Socket.io connection handling
 io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
+    console.log(`User connected: ${socket.id} (${socket.user?.name || 'unknown'})`);
 
     // Join room based on user role
     socket.on('join-room', (room) => {
         socket.join(room);
         console.log(`User ${socket.id} joined room: ${room}`);
     });
+
+    // Auto-join role-based room for dashboard updates
+    if (socket.user?.role) {
+        socket.join(socket.user.role);
+        console.log(`User ${socket.id} auto-joined room: ${socket.user.role}`);
+    }
 
     // Handle posting notices
     socket.on('post-notice', (data) => {
@@ -88,6 +102,11 @@ io.on('connection', (socket) => {
         if (data.studentId) {
             io.to(`student-${data.studentId}`).emit('fee-update', data);
         }
+    });
+
+    // Ping for keepalive
+    socket.on('ping', () => {
+        socket.emit('pong');
     });
 
     socket.on('disconnect', () => {

@@ -14,6 +14,7 @@ const SimplifiedAnalytics = require('../models/SimplifiedAnalytics');
 const StudentPerformance = require('../models/StudentPerformance');
 const Student = require('../models/Student');
 const { MARKS_EVENTS, emitMarksEvent, subscribeMarksEvent } = require('./marksEventEmitter');
+const { emitAnalyticsComputed, emitMarksPublished } = require('./dashboardEventManager');
 
 // ==================== HELPER FUNCTIONS ====================
 
@@ -307,6 +308,9 @@ async function computeAnalytics(scope) {
             version: analytics.version,
             duration
         });
+
+        // REAL-TIME: Notify admin dashboard to refresh
+        emitAnalyticsComputed(scope);
 
         return analytics;
 

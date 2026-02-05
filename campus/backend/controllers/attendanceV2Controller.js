@@ -7,6 +7,7 @@ const Attendance = require('../models/Attendance');
 const Faculty = require('../models/Faculty');
 const Student = require('../models/Student');
 const Subject = require('../models/Subject');
+const { emitAttendanceMarked } = require('../services/dashboardEventManager');
 const { successResponse, errorResponse } = require('../utils/responseHandler');
 
 // ==================== FACULTY FUNCTIONS ====================
@@ -201,6 +202,9 @@ exports.markAttendance = async (req, res, next) => {
         } else {
             attendance = await Attendance.create(attendanceData);
         }
+
+        // REAL-TIME: Notify dashboard
+        emitAttendanceMarked(subjectId, attendanceDate);
 
         return successResponse(res, 201, 'Attendance marked successfully', {
             _id: attendance._id,
