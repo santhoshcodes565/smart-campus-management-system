@@ -545,6 +545,145 @@ const getStudentsByClass = async (req, res, next) => {
     }
 };
 
+// @desc    Get single student profile by ID
+// @route   GET /api/faculty/students/profile/:id
+// @access  Faculty
+const getStudentProfile = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+
+        // Validate ObjectId
+        if (!require('mongoose').Types.ObjectId.isValid(id)) {
+            return errorResponse(res, 400, 'Invalid student ID');
+        }
+
+        const student = await Student.findById(id)
+            .populate('userId', 'name email phone department status profileImage')
+            .populate('departmentId', 'name code')
+            .populate('courseId', 'name code')
+            .populate('transportId', 'routeName vehicleNumber');
+
+        if (!student) {
+            return errorResponse(res, 404, 'Student not found');
+        }
+
+        // Verify the student belongs to faculty's department (optional security check)
+        // const faculty = await Faculty.findOne({ userId: req.user._id });
+        // if (student.userId?.department !== req.user.department) {
+        //     return errorResponse(res, 403, 'Not authorized to view this student');
+        // }
+
+        return successResponse(res, 200, 'Student profile retrieved', student);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// ==================== FACULTY PROFILE MODULE ====================
+
+// @desc    Get faculty profile (secure - uses JWT identity)
+// @route   GET /api/faculty/me
+// @access  Faculty
+const getMyProfile = async (req, res, next) => {
+    try {
+        const faculty = await Faculty.findOne({ userId: req.user._id })
+            .populate('userId', 'name email phone department status profileImage dateOfBirth')
+            .populate('departmentId', 'name code')
+            .populate('subjectIds', 'name code');
+
+        if (!faculty) {
+            return errorResponse(res, 404, 'Faculty profile not found');
+        }
+
+        // Build flat, UI-ready response
+        const profile = {
+            _id: faculty._id,
+            employeeId: faculty.employeeId,
+            designation: faculty.designation,
+            qualification: faculty.qualification || '',
+            experience: faculty.experience || 0,
+            joiningDate: faculty.joiningDate,
+            address: faculty.address || '',
+            // User data (flattened)
+            name: faculty.userId?.name || '',
+            email: faculty.userId?.email || '',
+            phone: faculty.userId?.phone || '',
+            profileImage: faculty.userId?.profileImage || '',
+            dateOfBirth: faculty.userId?.dateOfBirth || null,
+            // Department
+            department: faculty.departmentId ? {
+                _id: faculty.departmentId._id,
+                name: faculty.departmentId.name,
+                code: faculty.departmentId.code
+            } : null,
+            // Subjects
+            subjects: (faculty.subjectIds || []).map(s => ({
+                _id: s._id,
+                name: s.name,
+                code: s.code
+            })),
+            // Classes assigned
+            classIds: faculty.classIds || [],
+            // Timestamps
+            createdAt: faculty.createdAt,
+            updatedAt: faculty.updatedAt
+        };
+
+        return successResponse(res, 200, 'Profile retrieved successfully', profile);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Update faculty profile (secure - uses JWT identity)
+// @route   PATCH /api/faculty/me
+// @access  Faculty
+const updateMyProfile = async (req, res, next) => {
+    try {
+        const { phone, address, qualification } = req.body;
+
+        // Find faculty by JWT user ID - NEVER use ID from request body
+        const faculty = await Faculty.findOne({ userId: req.user._id });
+        if (!faculty) {
+            return errorResponse(res, 404, 'Faculty profile not found');
+        }
+
+        // Update allowed fields only (SECURITY: never allow salary, employeeId, etc.)
+        const updatedFields = {};
+
+        if (address !== undefined) {
+            updatedFields.address = address.trim();
+        }
+        if (qualification !== undefined) {
+            updatedFields.qualification = qualification.trim();
+        }
+
+        // Update Faculty document
+        if (Object.keys(updatedFields).length > 0) {
+            await Faculty.findByIdAndUpdate(faculty._id, updatedFields);
+        }
+
+        // Update User document for phone
+        if (phone !== undefined) {
+            // Validate phone format (10 digits)
+            if (phone && !/^\d{10}$/.test(phone)) {
+                return errorResponse(res, 400, 'Phone number must be 10 digits');
+            }
+            await User.findByIdAndUpdate(req.user._id, { phone: phone || '' });
+        }
+
+        // Fetch updated profile
+        const updatedFaculty = await Faculty.findById(faculty._id)
+            .populate('userId', 'name email phone department status profileImage')
+            .populate('departmentId', 'name code')
+            .populate('subjectIds', 'name code');
+
+        return successResponse(res, 200, 'Profile updated successfully', updatedFaculty);
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     getProfile,
     getStudentsList,
@@ -558,5 +697,8 @@ module.exports = {
     getMyClasses,
     getDashboardStats,
     getClasses,
-    getStudentsByClass
+    getStudentsByClass,
+    getStudentProfile,
+    getMyProfile,
+    updateMyProfile
 };

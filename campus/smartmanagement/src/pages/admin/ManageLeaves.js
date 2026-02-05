@@ -20,6 +20,7 @@ import {
 const ManageLeaves = () => {
     const [activeTab, setActiveTab] = useState('faculty');
     const [leaves, setLeaves] = useState([]);
+    const [studentLeaves, setStudentLeaves] = useState([]);
     const [loading, setLoading] = useState(true);
     const [statusFilter, setStatusFilter] = useState('');
     const [stats, setStats] = useState(null);
@@ -28,6 +29,7 @@ const ManageLeaves = () => {
     // Modal state
     const [showModal, setShowModal] = useState(false);
     const [selectedLeave, setSelectedLeave] = useState(null);
+    const [selectedLeaveType, setSelectedLeaveType] = useState('faculty'); // 'faculty' or 'student'
     const [action, setAction] = useState('');
     const [remarks, setRemarks] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,6 +37,8 @@ const ManageLeaves = () => {
     useEffect(() => {
         if (activeTab === 'faculty') {
             fetchFacultyLeaves();
+        } else if (activeTab === 'students') {
+            fetchStudentLeaves();
         } else if (activeTab === 'analytics') {
             fetchAnalytics();
         }
@@ -55,6 +59,22 @@ const ManageLeaves = () => {
             }
         } catch (error) {
             console.error('Error fetching leaves:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchStudentLeaves = async () => {
+        try {
+            setLoading(true);
+            const params = {};
+            if (statusFilter) params.status = statusFilter;
+            const response = await adminAPI.getStudentLeaves(params);
+            if (response.data.success) {
+                setStudentLeaves(response.data.data || []);
+            }
+        } catch (error) {
+            console.error('Error fetching student leaves:', error);
         } finally {
             setLoading(false);
         }
@@ -85,9 +105,10 @@ const ManageLeaves = () => {
         }
     };
 
-    const openActionModal = (leave, actionType) => {
+    const openActionModal = (leave, actionType, leaveType = 'faculty') => {
         setSelectedLeave(leave);
         setAction(actionType);
+        setSelectedLeaveType(leaveType);
         setRemarks('');
         setShowModal(true);
     };
@@ -99,15 +120,28 @@ const ManageLeaves = () => {
 
         setIsSubmitting(true);
         try {
-            if (action === 'approve') {
-                await adminAPI.approveFacultyLeave(selectedLeave._id, { remarks });
-                toast.success('Leave approved successfully');
+            if (selectedLeaveType === 'student') {
+                // Student leave actions
+                if (action === 'approve') {
+                    await adminAPI.approveStudentLeave(selectedLeave._id, { remarks });
+                    toast.success('Student leave approved successfully');
+                } else {
+                    await adminAPI.rejectStudentLeave(selectedLeave._id, { remarks });
+                    toast.success('Student leave rejected');
+                }
+                fetchStudentLeaves();
             } else {
-                await adminAPI.rejectFacultyLeave(selectedLeave._id, { remarks });
-                toast.success('Leave rejected');
+                // Faculty leave actions
+                if (action === 'approve') {
+                    await adminAPI.approveFacultyLeave(selectedLeave._id, { remarks });
+                    toast.success('Faculty leave approved successfully');
+                } else {
+                    await adminAPI.rejectFacultyLeave(selectedLeave._id, { remarks });
+                    toast.success('Faculty leave rejected');
+                }
+                fetchFacultyLeaves();
             }
             setShowModal(false);
-            fetchFacultyLeaves();
             fetchStats();
         } catch (error) {
             toast.error(getErrorMessage(error, 'Failed to process leave'));
@@ -118,6 +152,7 @@ const ManageLeaves = () => {
 
     const tabs = [
         { id: 'faculty', label: 'Faculty Leaves', icon: FiUser },
+        { id: 'students', label: 'Student Leaves', icon: FiUsers },
         { id: 'analytics', label: 'Analytics', icon: FiBarChart2 }
     ];
 
@@ -192,8 +227,8 @@ const ManageLeaves = () => {
                         key={tab.id}
                         onClick={() => setActiveTab(tab.id)}
                         className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors ${activeTab === tab.id
-                                ? 'border-primary-500 text-primary-600 font-medium'
-                                : 'border-transparent text-secondary-500 hover:text-secondary-700'
+                            ? 'border-primary-500 text-primary-600 font-medium'
+                            : 'border-transparent text-secondary-500 hover:text-secondary-700'
                             }`}
                     >
                         <tab.icon size={18} />
@@ -305,6 +340,135 @@ const ManageLeaves = () => {
                                                             </button>
                                                             <button
                                                                 onClick={() => openActionModal(leave, 'reject')}
+                                                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                                                                title="Reject"
+                                                            >
+                                                                <FiX size={16} />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-sm text-secondary-400">
+                                                            {leave.remarks || '-'}
+                                                        </span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* Student Leaves Tab */}
+            {activeTab === 'students' && (
+                <div className="card">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+                        <h2 className="text-lg font-semibold text-secondary-800 flex items-center gap-2">
+                            <FiUsers className="text-blue-600" />
+                            Student Leave Requests
+                        </h2>
+                        <div className="flex gap-2">
+                            <select
+                                value={statusFilter}
+                                onChange={(e) => setStatusFilter(e.target.value)}
+                                className="input w-40"
+                            >
+                                <option value="">All Status</option>
+                                <option value="pending">Pending</option>
+                                <option value="approved">Approved</option>
+                                <option value="rejected">Rejected</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    {loading ? (
+                        <SkeletonTable rows={5} />
+                    ) : studentLeaves.length === 0 ? (
+                        <EmptyState
+                            icon={FiCalendar}
+                            title="No leave requests"
+                            description="There are no student leave requests to display."
+                        />
+                    ) : (
+                        <div className="table-container">
+                            <table className="table">
+                                <thead>
+                                    <tr>
+                                        <th>Student</th>
+                                        <th>Register No.</th>
+                                        <th>Type</th>
+                                        <th>Duration</th>
+                                        <th>Reason</th>
+                                        <th>Status</th>
+                                        <th>Applied On</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {studentLeaves.map((leave) => {
+                                        const typeInfo = getLeaveTypeInfo(leave.leaveType);
+                                        const statusInfo = getStatusInfo(leave.status);
+
+                                        return (
+                                            <tr key={leave._id}>
+                                                <td>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 text-xs font-bold">
+                                                            {leave.applicantId?.name?.charAt(0) || 'S'}
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-medium text-secondary-800">
+                                                                {leave.applicantId?.name || 'Unknown'}
+                                                            </p>
+                                                            <p className="text-xs text-secondary-500">
+                                                                {leave.applicantId?.department || '-'}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td className="text-sm font-medium text-secondary-600">
+                                                    {leave.applicantId?.registerNumber || '-'}
+                                                </td>
+                                                <td>
+                                                    <span className={`flex items-center gap-1 ${typeInfo.color}`}>
+                                                        <span>{typeInfo.icon}</span>
+                                                        {typeInfo.label}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <div className="text-sm">
+                                                        <p className="font-medium">
+                                                            {formatLeaveDate(leave.fromDate)} - {formatLeaveDate(leave.toDate)}
+                                                        </p>
+                                                        <p className="text-secondary-500">
+                                                            {getDaysBetween(leave.fromDate, leave.toDate)} day(s)
+                                                        </p>
+                                                    </div>
+                                                </td>
+                                                <td className="max-w-xs truncate">{leave.reason}</td>
+                                                <td>
+                                                    <span className={`badge ${statusInfo.color}`}>
+                                                        {statusInfo.icon} {statusInfo.label}
+                                                    </span>
+                                                </td>
+                                                <td className="text-sm text-secondary-500">
+                                                    {formatLeaveDate(leave.createdAt)}
+                                                </td>
+                                                <td>
+                                                    {leave.status === 'pending' ? (
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                onClick={() => openActionModal(leave, 'approve', 'student')}
+                                                                className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
+                                                                title="Approve"
+                                                            >
+                                                                <FiCheck size={16} />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => openActionModal(leave, 'reject', 'student')}
                                                                 className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
                                                                 title="Reject"
                                                             >

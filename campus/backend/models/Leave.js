@@ -59,4 +59,7 @@ const leaveSchema = new mongoose.Schema({
     timestamps: true
 });
 
+// Compound index for optimized admin queries (filter by role and status)
+leaveSchema.index({ applicantType: 1, status: 1 });
+
 module.exports = mongoose.model('Leave', leaveSchema);

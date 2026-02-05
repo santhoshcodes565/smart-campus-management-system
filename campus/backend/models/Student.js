@@ -65,6 +65,26 @@ const studentSchema = new mongoose.Schema({
         type: String,
         default: ''
     },
+    // ==================== ACADEMIC PERFORMANCE FIELDS ====================
+    // Auto-updated by Analytics Engine after result publish
+    cgpa: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 10
+    },
+    placementEligible: {
+        type: Boolean,
+        default: false
+    },
+    activeArrears: {
+        type: Number,
+        default: 0
+    },
+    placementEligibilityUpdatedAt: {
+        type: Date
+    },
+    // ==================== END ACADEMIC PERFORMANCE ====================
     transportId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Transport',

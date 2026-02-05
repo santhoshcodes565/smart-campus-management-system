@@ -33,14 +33,53 @@ const getProfile = async (req, res, next) => {
 // @access  Student (READ-ONLY - only published/locked timetables visible)
 const getTimetable = async (req, res, next) => {
     try {
-        const student = await Student.findOne({ userId: req.user._id });
+        const student = await Student.findOne({ userId: req.user._id })
+            .populate('departmentId', 'name code');
         if (!student) {
             return errorResponse(res, 404, 'Student not found');
         }
 
+        // Build flexible department query
+        // Priority: Match by departmentId (ObjectId) if available, then by department string
+        const departmentQuery = [];
+
+        if (student.departmentId && student.departmentId._id) {
+            // Match by ObjectId (most reliable)
+            departmentQuery.push({ departmentId: student.departmentId._id });
+        }
+
+        // Also try matching by department code/name strings
+        if (student.departmentId && student.departmentId.code) {
+            departmentQuery.push({ department: student.departmentId.code });
+        }
+        if (student.departmentId && student.departmentId.name) {
+            departmentQuery.push({ department: student.departmentId.name });
+        }
+        if (req.user.department) {
+            departmentQuery.push({ department: req.user.department });
+        }
+
+        console.log('[TIMETABLE DEBUG] Student lookup:', {
+            studentId: student._id,
+            departmentId: student.departmentId?._id,
+            departmentCode: student.departmentId?.code,
+            departmentName: student.departmentId?.name,
+            userDepartment: req.user.department,
+            year: student.year,
+            section: student.section,
+            queryOptions: departmentQuery.length
+        });
+
+        // If no department info available, return empty
+        if (departmentQuery.length === 0) {
+            console.log('[TIMETABLE DEBUG] No department info found for student');
+            return successResponse(res, 200, 'Timetable retrieved', []);
+        }
+
         // Only show published or locked timetables (not draft)
+        // Use $or to match any department identifier
         const timetable = await Timetable.find({
-            department: req.user.department,
+            $or: departmentQuery,
             year: student.year,
             section: student.section,
             status: { $in: ['published', 'locked'] }  // Lifecycle filter
@@ -51,6 +90,8 @@ const getTimetable = async (req, res, next) => {
                 populate: { path: 'userId', select: 'name' }
             })
             .sort({ day: 1 });
+
+        console.log('[TIMETABLE DEBUG] Found entries:', timetable.length);
 
         return successResponse(res, 200, 'Timetable retrieved', timetable);
     } catch (error) {
@@ -310,6 +351,76 @@ const getDashboardStats = async (req, res, next) => {
         next(error);
     }
 };
+// ==================== STUDENT ACCOUNT MODULE ====================
+
+// @desc    Get current student's full profile (secure - uses JWT)
+// @route   GET /api/student/me
+// @access  Student
+const getMyProfile = async (req, res, next) => {
+    try {
+        const student = await Student.findOne({ userId: req.user._id })
+            .populate('userId', 'name email phone department status profileImage date_of_birth')
+            .populate('departmentId', 'name code')
+            .populate('courseId', 'name code')
+            .populate('transportId', 'routeName vehicleNumber driver');
+
+        if (!student) {
+            return errorResponse(res, 404, 'Student profile not found');
+        }
+
+        return successResponse(res, 200, 'Profile retrieved', student);
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Update current student's profile (secure - uses JWT)
+// @route   PATCH /api/student/me
+// @access  Student
+const updateMyProfile = async (req, res, next) => {
+    try {
+        const { phone, address, guardianName, guardianPhone, bloodGroup } = req.body;
+
+        // Find student by JWT identity
+        const student = await Student.findOne({ userId: req.user._id });
+        if (!student) {
+            return errorResponse(res, 404, 'Student profile not found');
+        }
+
+        // Validate phone numbers (10 digits only)
+        if (phone && !/^\d{10}$/.test(phone)) {
+            return errorResponse(res, 400, 'Phone number must be 10 digits');
+        }
+        if (guardianPhone && !/^\d{10}$/.test(guardianPhone)) {
+            return errorResponse(res, 400, 'Guardian phone must be 10 digits');
+        }
+
+        // Update User model fields (phone)
+        if (phone !== undefined) {
+            await User.findByIdAndUpdate(req.user._id, { phone: phone || '' });
+        }
+
+        // Update Student model fields
+        const updateData = {};
+        if (address !== undefined) updateData.address = address;
+        if (guardianName !== undefined) updateData.guardianName = guardianName;
+        if (guardianPhone !== undefined) updateData.guardianPhone = guardianPhone;
+        if (bloodGroup !== undefined) updateData.bloodGroup = bloodGroup;
+
+        const updatedStudent = await Student.findByIdAndUpdate(
+            student._id,
+            updateData,
+            { new: true, runValidators: true }
+        )
+            .populate('userId', 'name email phone department status profileImage')
+            .populate('departmentId', 'name code')
+            .populate('courseId', 'name code');
+
+        return successResponse(res, 200, 'Profile updated successfully', updatedStudent);
+    } catch (error) {
+        next(error);
+    }
+};
 
 module.exports = {
     getProfile,
@@ -322,6 +433,8 @@ module.exports = {
     applyLeave,
     getLeaveRequests,
     getMyEnrollment,
-    getDashboardStats
+    getDashboardStats,
+    getMyProfile,
+    updateMyProfile
 };
 

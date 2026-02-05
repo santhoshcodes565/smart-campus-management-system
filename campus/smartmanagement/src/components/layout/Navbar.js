@@ -1,16 +1,19 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { useSocket } from '../../context/SocketContext';
+import { notificationAPI } from '../../services/api';
+import { toast } from 'react-toastify';
 import {
-    FiMenu, FiBell, FiSearch, FiUser, FiSettings, FiLogOut, FiCircle
+    FiMenu, FiBell, FiSearch, FiUser, FiSettings, FiLogOut, FiCircle, FiCheck
 } from 'react-icons/fi';
 
 const Navbar = () => {
     const { user, logout } = useAuth();
-    const { toggleSidebar, notifications, unreadCount, markNotificationRead } = useApp();
+    const { toggleSidebar, notifications, unreadCount, markNotificationRead, setNotifications } = useApp();
     const { isConnected } = useSocket();
+    const navigate = useNavigate();
     const [showNotifications, setShowNotifications] = useState(false);
     const [showProfile, setShowProfile] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -33,6 +36,24 @@ const Navbar = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // Fetch notifications from server on mount
+    useEffect(() => {
+        const fetchNotifications = async () => {
+            try {
+                const response = await notificationAPI.getMyNotifications({ limit: 20 });
+                if (response.data?.data?.notifications) {
+                    setNotifications(response.data.data.notifications);
+                }
+            } catch (error) {
+                console.error('Failed to fetch notifications:', error);
+            }
+        };
+
+        if (user) {
+            fetchNotifications();
+        }
+    }, [user, setNotifications]);
+
     const formatTime = (dateString) => {
         const date = new Date(dateString);
         const now = new Date();
@@ -43,6 +64,66 @@ const Navbar = () => {
         if (diff < 86400000) return `${Math.floor(diff / 3600000)}h ago`;
         return date.toLocaleDateString();
     };
+
+    /**
+     * Handle notification click - CRITICAL FIX
+     * 1. Stop event bubbling
+     * 2. Mark as read
+     * 3. Validate link
+     * 4. Role-based safety check
+     * 5. Navigate
+     */
+    const handleNotificationClick = useCallback(async (e, notif) => {
+        // 1. Stop event bubbling - prevents logout trigger
+        e.stopPropagation();
+        e.preventDefault();
+
+        // 2. Mark notification as read (API + local state)
+        try {
+            await notificationAPI.markAsRead(notif._id);
+            markNotificationRead(notif._id);
+        } catch (error) {
+            console.error('Failed to mark notification as read:', error);
+        }
+
+        // 3. Validate link exists
+        if (!notif.link) {
+            // No link - just close dropdown, don't navigate
+            setShowNotifications(false);
+            return;
+        }
+
+        // 4. Role-based safety check
+        const userRole = user?.role;
+        const linkRole = notif.link.split('/')[1]; // Extract role from /student/... /faculty/... /admin/...
+
+        if (linkRole && linkRole !== userRole && ['student', 'faculty', 'admin'].includes(linkRole)) {
+            toast.error('You cannot access this page');
+            setShowNotifications(false);
+            return;
+        }
+
+        // 5. Navigate safely
+        setShowNotifications(false);
+        navigate(notif.link);
+    }, [markNotificationRead, navigate, user?.role]);
+
+    /**
+     * Mark all notifications as read
+     */
+    const handleMarkAllAsRead = useCallback(async (e) => {
+        e.stopPropagation();
+
+        try {
+            await notificationAPI.markAllAsRead();
+            // Update all local notifications to read
+            const updatedNotifications = notifications.map(n => ({ ...n, read: true, isRead: true }));
+            setNotifications(updatedNotifications);
+            toast.success('All notifications marked as read');
+        } catch (error) {
+            toast.error('Failed to mark all as read');
+        }
+    }, [notifications, setNotifications]);
 
     const handleLogout = () => {
         logout();
@@ -83,10 +164,13 @@ const Navbar = () => {
                     <span className="text-secondary-600">{isConnected ? 'Live' : 'Offline'}</span>
                 </div>
 
-                {/* Notifications */}
+                {/* Notifications - ISOLATED from profile/logout */}
                 <div className="relative" ref={notifRef}>
                     <button
-                        onClick={() => setShowNotifications(!showNotifications)}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            setShowNotifications(!showNotifications);
+                        }}
                         className="p-2 rounded-lg hover:bg-gray-100 text-secondary-600 relative"
                     >
                         <FiBell size={20} />
@@ -97,30 +181,49 @@ const Navbar = () => {
                         )}
                     </button>
 
-                    {/* Notifications Dropdown */}
+                    {/* Notifications Dropdown - FULLY ISOLATED */}
                     {showNotifications && (
-                        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden animate-fade-in">
+                        <div
+                            className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-gray-100 overflow-hidden animate-fade-in"
+                            onClick={(e) => e.stopPropagation()} // Prevent bubbling
+                        >
                             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                                 <h3 className="font-semibold text-secondary-800">Notifications</h3>
-                                {unreadCount > 0 && (
-                                    <span className="badge-primary">{unreadCount} new</span>
-                                )}
+                                <div className="flex items-center gap-2">
+                                    {unreadCount > 0 && (
+                                        <>
+                                            <span className="badge-primary">{unreadCount} new</span>
+                                            <button
+                                                onClick={handleMarkAllAsRead}
+                                                className="text-xs text-primary-600 hover:text-primary-700 flex items-center gap-1"
+                                                title="Mark all as read"
+                                            >
+                                                <FiCheck size={14} />
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                             <div className="max-h-96 overflow-y-auto scrollbar-thin">
                                 {notifications.length > 0 ? (
                                     notifications.slice(0, 10).map((notif) => (
                                         <div
                                             key={notif._id}
-                                            className={`p-4 border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors ${!notif.read ? 'bg-primary-50/30' : ''
+                                            className={`p-4 border-b border-gray-50 hover:bg-gray-50 cursor-pointer transition-colors ${!(notif.read || notif.isRead) ? 'bg-primary-50/30' : ''
                                                 }`}
-                                            onClick={() => markNotificationRead(notif._id)}
+                                            onClick={(e) => handleNotificationClick(e, notif)}
                                         >
                                             <div className="flex items-start gap-3">
-                                                <div className={`w-2 h-2 mt-2 rounded-full ${!notif.read ? 'bg-primary-500' : 'bg-gray-300'}`} />
+                                                <div className={`w-2 h-2 mt-2 rounded-full ${!(notif.read || notif.isRead) ? 'bg-primary-500' : 'bg-gray-300'}`} />
                                                 <div className="flex-1 min-w-0">
                                                     <p className="font-medium text-sm text-secondary-800 truncate">{notif.title}</p>
                                                     <p className="text-xs text-secondary-500 mt-0.5 line-clamp-2">{notif.message}</p>
-                                                    <p className="text-xs text-secondary-400 mt-1">{formatTime(notif.createdAt)}</p>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <p className="text-xs text-secondary-400">{formatTime(notif.createdAt)}</p>
+                                                        {notif.link && (
+                                                            <span className="text-xs text-primary-500">Click to view →</span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -134,7 +237,11 @@ const Navbar = () => {
                             </div>
                             {notifications.length > 0 && (
                                 <div className="p-3 border-t border-gray-100 text-center">
-                                    <Link to={`/${user?.role}/notifications`} className="text-sm text-primary-600 hover:text-primary-700 font-medium">
+                                    <Link
+                                        to={`/${user?.role}/notifications`}
+                                        className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                                        onClick={() => setShowNotifications(false)}
+                                    >
                                         View all notifications
                                     </Link>
                                 </div>
@@ -143,7 +250,7 @@ const Navbar = () => {
                     )}
                 </div>
 
-                {/* Profile Dropdown */}
+                {/* Profile Dropdown - COMPLETELY SEPARATE */}
                 <div className="relative" ref={profileRef}>
                     <button
                         onClick={() => setShowProfile(!showProfile)}
@@ -201,3 +308,4 @@ const Navbar = () => {
 };
 
 export default Navbar;
+

@@ -12,7 +12,10 @@ const {
     getMyClasses,
     getDashboardStats,
     getClasses,
-    getStudentsByClass
+    getStudentsByClass,
+    getStudentProfile,
+    getMyProfile,
+    updateMyProfile
 } = require('../controllers/facultyController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorize } = require('../middleware/roleMiddleware');
@@ -22,7 +25,10 @@ router.use(protect);
 router.use(authorize('faculty'));
 
 router.get('/profile', getProfile);
+router.get('/me', getMyProfile);          // Secure: uses JWT identity
+router.patch('/me', updateMyProfile);     // Secure: update profile via JWT
 router.get('/students', getStudentsList);
+router.get('/students/profile/:id', getStudentProfile);  // NEW: Get single student profile
 router.get('/students/:classId', getStudentsByClass); // Get students by class ID
 router.get('/classes', getClasses); // Get faculty classes
 router.post('/attendance', markAttendance);
@@ -167,5 +173,24 @@ router.post('/attendance/check-out', facultyAttendance.checkOut);
 router.get('/attendance/status', facultyAttendance.getTodayStatus);
 router.get('/attendance/summary', facultyAttendance.getAttendanceSummary);
 router.get('/attendance/history', facultyAttendance.getAttendanceHistory);
+
+// ==================== ACADEMIC ANALYTICS (Faculty View) ====================
+const academicAnalytics = require('../controllers/academicAnalyticsController');
+
+router.get('/subject-analytics/:subjectId', academicAnalytics.getSubjectAnalytics);
+router.get('/class-analytics', academicAnalytics.getClassAnalytics);
+router.get('/weak-students', academicAnalytics.getWeakStudents);
+
+// ==================== MARK MANAGEMENT (Faculty Authority) ====================
+const markController = require('../controllers/markController');
+const { canEdit, canSubmit, blockStudents } = require('../middleware/resultPermissions');
+
+// Block students from all mark operations
+router.use('/marks', blockStudents);
+
+// Faculty mark entry and submission
+router.post('/marks/upload', markController.uploadMarks);
+router.patch('/marks/:resultId', canEdit, markController.editMark);
+router.post('/marks/submit/:examId', canSubmit, markController.submitResults);
 
 module.exports = router;

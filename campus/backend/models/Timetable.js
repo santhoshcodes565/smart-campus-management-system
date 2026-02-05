@@ -132,4 +132,9 @@ timetableSchema.index({ 'slots.faculty': 1, day: 1, status: 1 });
 // Room lookup index (for conflict detection)
 timetableSchema.index({ 'slots.room': 1, day: 1, 'slots.startTime': 1 });
 
+// Student timetable query index (for high-traffic student queries)
+// Critical for performance with 20k+ students
+timetableSchema.index({ status: 1, department: 1, year: 1, section: 1 });
+timetableSchema.index({ status: 1, departmentId: 1, year: 1, section: 1 });
+
 module.exports = mongoose.model('Timetable', timetableSchema);

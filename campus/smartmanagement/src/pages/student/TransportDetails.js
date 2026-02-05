@@ -138,15 +138,15 @@ const TransportDetails = () => {
                         <h3 className="card-title mb-4">Driver Profile</h3>
                         <div className="flex items-center gap-4 p-4 rounded-xl bg-gray-50 mb-4">
                             <div className="w-12 h-12 rounded-full bg-primary-100 flex items-center justify-center text-primary-600 font-bold">
-                                {transport.driver.name.charAt(0)}
+                                {transport.driver?.name?.charAt(0) || 'D'}
                             </div>
                             <div>
-                                <h4 className="font-bold text-secondary-800">{transport.driver.name}</h4>
+                                <h4 className="font-bold text-secondary-800">{transport.driver?.name || 'Unknown Driver'}</h4>
                                 <p className="text-xs text-secondary-500">Official Driver</p>
                             </div>
                         </div>
                         <button className="w-full btn-secondary flex items-center justify-center gap-2">
-                            <FiPhone size={16} /> {transport.driver.phone}
+                            <FiPhone size={16} /> {transport.driver?.phone || 'N/A'}
                         </button>
                     </div>
 

@@ -86,6 +86,7 @@ const Sidebar = () => {
                     { path: '/admin/notices', icon: FiBell, label: 'Notices' },
                     { path: '/admin/feedback', icon: FiMessageSquare, label: 'Feedback' },
                     { path: '/admin/exam-analytics', icon: FiTrendingUp, label: 'Exam Analytics' },
+                    { path: '/admin/academic-analytics', icon: FiBarChart2, label: 'Academic Analytics' },
                     { path: '/admin/attendance-analytics', icon: FiCheckSquare, label: 'Student Attendance' },
                     { path: '/admin/faculty-attendance', icon: FiClock, label: 'Faculty Attendance' },
                     { path: '/admin/reports', icon: FiBarChart2, label: 'Reports' },
@@ -104,6 +105,7 @@ const Sidebar = () => {
                     { path: '/faculty/apply-leave', icon: FiFileText, label: 'Apply Leave', badge: leaveStats.myPending > 0 ? `${leaveStats.myPending} pending` : null },
                     { path: '/faculty/notices', icon: FiBell, label: 'Post Notice' },
                     { path: '/faculty/feedback', icon: FiMessageSquare, label: 'Feedback' },
+                    { path: '/faculty/subject-analytics', icon: FiTrendingUp, label: 'Subject Analytics' },
                 ];
             case 'student':
                 return [
@@ -116,6 +118,7 @@ const Sidebar = () => {
                     { path: '/student/transport', icon: FiTruck, label: 'Transport' },
                     { path: '/student/leave', icon: FiFileText, label: 'Apply Leave', badge: leaveStats.myPending > 0 ? leaveStats.myPending : null },
                     { path: '/student/feedback', icon: FiMessageSquare, label: 'Feedback' },
+                    { path: '/student/performance', icon: FiTrendingUp, label: 'My Performance' },
                 ];
             default:
                 return [];

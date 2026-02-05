@@ -478,6 +478,105 @@ const getLeaveAnalytics = async (req, res, next) => {
     }
 };
 
+// ==================== ADMIN STUDENT LEAVE MANAGEMENT ====================
+
+/**
+ * @desc    Get all student leave requests (for admin)
+ * @route   GET /api/admin/leave/students
+ * @access  Admin
+ */
+const getStudentLeavesForAdmin = async (req, res, next) => {
+    try {
+        const { status } = req.query;
+
+        let query = { applicantType: 'student' };
+        if (status) query.status = status;
+
+        const leaves = await Leave.find(query)
+            .populate('applicantId', 'name email department registerNumber')
+            .populate('approvedBy', 'name')
+            .sort({ createdAt: -1 });
+
+        return successResponse(res, 200, 'Student leave requests retrieved', leaves);
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * @desc    Approve student leave (for admin)
+ * @route   PUT /api/admin/leave/students/:id/approve
+ * @access  Admin
+ */
+const approveStudentLeaveByAdmin = async (req, res, next) => {
+    try {
+        const { remarks } = req.body;
+
+        const leave = await Leave.findById(req.params.id);
+        if (!leave) {
+            return errorResponse(res, 404, 'Leave request not found');
+        }
+
+        if (leave.applicantType !== 'student') {
+            return errorResponse(res, 403, 'This endpoint is for student leaves only');
+        }
+
+        if (leave.status !== 'pending') {
+            return errorResponse(res, 400, `Leave is already ${leave.status}`);
+        }
+
+        leave.status = 'approved';
+        leave.approvedBy = req.user._id;
+        leave.approvalDate = new Date();
+        if (remarks) leave.remarks = remarks;
+
+        await leave.save();
+
+        return successResponse(res, 200, 'Student leave approved successfully', leave);
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * @desc    Reject student leave (for admin)
+ * @route   PUT /api/admin/leave/students/:id/reject
+ * @access  Admin
+ */
+const rejectStudentLeaveByAdmin = async (req, res, next) => {
+    try {
+        const { remarks } = req.body;
+
+        if (!remarks) {
+            return errorResponse(res, 400, 'Remarks are required when rejecting a leave');
+        }
+
+        const leave = await Leave.findById(req.params.id);
+        if (!leave) {
+            return errorResponse(res, 404, 'Leave request not found');
+        }
+
+        if (leave.applicantType !== 'student') {
+            return errorResponse(res, 403, 'This endpoint is for student leaves only');
+        }
+
+        if (leave.status !== 'pending') {
+            return errorResponse(res, 400, `Leave is already ${leave.status}`);
+        }
+
+        leave.status = 'rejected';
+        leave.approvedBy = req.user._id;
+        leave.approvalDate = new Date();
+        leave.remarks = remarks;
+
+        await leave.save();
+
+        return successResponse(res, 200, 'Student leave rejected', leave);
+    } catch (error) {
+        next(error);
+    }
+};
+
 module.exports = {
     validateLeaveRequest,
     applyFacultyLeave,
@@ -490,5 +589,9 @@ module.exports = {
     getStudentLeaveStats,
     getFacultyLeaveStats,
     getAdminLeaveStats,
-    getLeaveAnalytics
+    getLeaveAnalytics,
+    // Admin Student Leave Management
+    getStudentLeavesForAdmin,
+    approveStudentLeaveByAdmin,
+    rejectStudentLeaveByAdmin
 };

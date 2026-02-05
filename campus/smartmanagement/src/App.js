@@ -13,6 +13,7 @@ import DashboardLayout from './components/layout/DashboardLayout';
 import PublicLayout from './components/layout/PublicLayout';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import ChatbotWidget from './components/common/ChatbotWidget';
 
 // Public Pages
 import Home from './pages/public/Home';
@@ -63,6 +64,7 @@ import FacultyDashboard from './pages/faculty/FacultyDashboard';
 import MarkAttendance from './pages/faculty/MarkAttendance';
 import UploadMarks from './pages/faculty/UploadMarks';
 import StudentList from './pages/faculty/StudentList';
+import StudentProfile from './pages/faculty/StudentProfile';
 import FacultyTimetable from './pages/faculty/FacultyTimetable';
 import LeaveRequests from './pages/faculty/LeaveRequests';
 import FacultyNotices from './pages/faculty/FacultyNotices';
@@ -74,6 +76,11 @@ import FacultyAttendanceV2 from './pages/faculty/FacultyAttendanceV2';
 import FacultyApplyLeave from './pages/faculty/ApplyLeave';
 // Faculty Self Attendance
 import FacultyAttendanceSummary from './pages/faculty/FacultyAttendanceSummary';
+// Faculty Profile & Settings
+import FacultyProfile from './pages/faculty/FacultyProfile';
+import FacultySettings from './pages/faculty/FacultySettings';
+// Faculty Analytics
+import FacultySubjectAnalytics from './pages/faculty/FacultySubjectAnalytics';
 
 // Student Pages
 import StudentDashboard from './pages/student/StudentDashboard';
@@ -89,6 +96,10 @@ import StudentResults from './pages/student/StudentResults';
 import StudentFeedback from './pages/student/StudentFeedback';
 import StudentNotices from './pages/student/StudentNotices';
 import StudentAttendanceV2 from './pages/student/StudentAttendanceV2';
+import MyProfile from './pages/student/StudentProfile';
+import StudentSettings from './pages/student/StudentSettings';
+// Student Performance & Analytics
+import StudentPerformanceView from './pages/student/StudentPerformanceView';
 // Admin Attendance V2
 import AdminAttendanceAnalytics from './pages/admin/AdminAttendanceAnalytics';
 // Admin Faculty Attendance
@@ -96,6 +107,8 @@ import AdminFacultyAttendance from './pages/admin/AdminFacultyAttendance';
 import AdminFacultyAttendanceAnalytics from './pages/admin/AdminFacultyAttendanceAnalytics';
 // Admin Leave Management
 import ManageLeaves from './pages/admin/ManageLeaves';
+// Academic Analytics
+import AdminAcademicAnalytics from './pages/admin/AdminAcademicAnalytics';
 
 // Placeholder component for pages not yet created
 const ComingSoon = ({ title }) => (
@@ -167,6 +180,8 @@ function App() {
                   <Route path="faculty-attendance-analytics" element={<AdminFacultyAttendanceAnalytics />} />
                   {/* Leave Management */}
                   <Route path="leaves" element={<ManageLeaves />} />
+                  {/* Academic Analytics */}
+                  <Route path="academic-analytics" element={<AdminAcademicAnalytics />} />
                   {/* Admin Settings V2 */}
                   <Route path="settings" element={<AdminSettingsLayout />}>
                     <Route index element={<AdminProfile />} />
@@ -195,6 +210,7 @@ function App() {
                   <Route path="attendance" element={<MarkAttendance />} />
                   <Route path="marks" element={<UploadMarks />} />
                   <Route path="students" element={<StudentList />} />
+                  <Route path="students/:id" element={<StudentProfile />} />
                   <Route path="timetable" element={<FacultyTimetable />} />
                   <Route path="leaves" element={<LeaveRequests />} />
                   <Route path="notices" element={<FacultyNotices />} />
@@ -210,6 +226,12 @@ function App() {
                   <Route path="my-attendance" element={<FacultyAttendanceSummary />} />
                   {/* Leave Management */}
                   <Route path="apply-leave" element={<FacultyApplyLeave />} />
+                  {/* Profile & Settings */}
+                  <Route path="profile" element={<FacultyProfile />} />
+                  <Route path="settings" element={<FacultySettings />} />
+                  <Route path="settings/profile" element={<FacultyProfile />} />
+                  {/* Subject Analytics */}
+                  <Route path="subject-analytics" element={<FacultySubjectAnalytics />} />
                 </Route>
 
                 {/* Student Routes */}
@@ -239,11 +261,19 @@ function App() {
                   <Route path="notices" element={<StudentNotices />} />
                   {/* Attendance V2 */}
                   <Route path="attendance-v2" element={<StudentAttendanceV2 />} />
+                  {/* Profile & Settings */}
+                  <Route path="settings/profile" element={<MyProfile />} />
+                  <Route path="settings" element={<StudentSettings />} />
+                  {/* Performance & Analytics */}
+                  <Route path="performance" element={<StudentPerformanceView />} />
                 </Route>
 
                 {/* Catch all - redirect to home instead of login */}
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
+
+              {/* Chatbot Widget - Available on all authenticated pages */}
+              <ChatbotWidget />
 
               {/* Toast Container */}
               <ToastContainer

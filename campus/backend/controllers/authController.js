@@ -129,4 +129,47 @@ const getMe = async (req, res, next) => {
     }
 };
 
-module.exports = { login, logout, getMe };
+// @desc    Change user password (secure - uses JWT identity)
+// @route   PATCH /api/auth/change-password
+// @access  Protected
+const changePassword = async (req, res, next) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        // Validation
+        if (!currentPassword || !newPassword) {
+            return errorResponse(res, 400, 'Current password and new password are required');
+        }
+
+        if (newPassword.length < 6) {
+            return errorResponse(res, 400, 'New password must be at least 6 characters');
+        }
+
+        if (currentPassword === newPassword) {
+            return errorResponse(res, 400, 'New password must be different from current password');
+        }
+
+        // Get user with password field
+        const user = await User.findById(req.user._id).select('+password');
+        if (!user) {
+            return errorResponse(res, 404, 'User not found');
+        }
+
+        // Verify current password
+        const isMatch = await user.matchPassword(currentPassword);
+        if (!isMatch) {
+            return errorResponse(res, 401, 'Current password is incorrect');
+        }
+
+        // Update password (password will be hashed by pre-save hook in User model)
+        user.password = newPassword;
+        await user.save();
+
+        return successResponse(res, 200, 'Password changed successfully');
+    } catch (error) {
+        next(error);
+    }
+};
+
+module.exports = { login, logout, getMe, changePassword };
+

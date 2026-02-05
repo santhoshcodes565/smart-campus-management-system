@@ -77,11 +77,22 @@ export const authAPI = {
     login: (credentials) => api.post('/auth/login', credentials),
     logout: () => api.post('/auth/logout'),
     getMe: () => api.get('/auth/me'),
+    changePassword: (data) => api.patch('/auth/change-password', data),
+};
+
+// Notification API
+export const notificationAPI = {
+    getMyNotifications: (params) => api.get('/notifications/me', { params }),
+    markAsRead: (id) => api.patch(`/notifications/${id}/read`),
+    markAllAsRead: () => api.patch('/notifications/mark-all-read'),
+    deleteNotification: (id) => api.delete(`/notifications/${id}`),
 };
 
 // Student API
 export const studentAPI = {
     getProfile: () => api.get('/student/profile'),
+    getMyProfile: () => api.get('/student/me'),  // Secure: uses JWT identity
+    updateMyProfile: (data) => api.patch('/student/me', data),  // Secure: uses JWT identity
     getAttendance: () => api.get('/student/attendance'),
     getMarks: () => api.get('/student/marks'),
     getTimetable: () => api.get('/student/timetable'),
@@ -122,10 +133,13 @@ export const studentAPI = {
 // Faculty API
 export const facultyAPI = {
     getProfile: () => api.get('/faculty/profile'),
+    getMyProfile: () => api.get('/faculty/me'),              // Secure: uses JWT identity
+    updateMyProfile: (data) => api.patch('/faculty/me', data), // Secure: update via JWT
     getDashboard: () => api.get('/faculty/dashboard'),
     getClasses: () => api.get('/faculty/classes'),
     getStudents: (classId) => api.get(`/faculty/students/${classId}`),
     getAllStudents: () => api.get('/faculty/students'),
+    getStudentProfile: (id) => api.get(`/faculty/students/profile/${id}`),
     markAttendance: (data) => api.post('/faculty/attendance', data),
     getAttendanceByClass: (classId, date) => api.get(`/faculty/attendance/${classId}?date=${date}`),
     uploadMarks: (data) => api.post('/faculty/marks', data),
@@ -244,7 +258,9 @@ export const adminAPI = {
     updateTimetable: (id, data) => api.put(`/admin/timetable/${id}`, data),
     deleteTimetable: (id) => api.delete(`/admin/timetable/${id}`),
     publishTimetable: (id) => api.put(`/admin/timetable/${id}/publish`),
+    publishClassTimetables: (data) => api.put('/admin/timetable/publish-class', data),
     lockTimetable: (id) => api.put(`/admin/timetable/${id}/lock`),
+    lockClassTimetables: (data) => api.put('/admin/timetable/lock-class', data),
     validateTimetableConflicts: (data) => api.post('/admin/timetable/validate', data),
 
     // Fees
@@ -360,12 +376,17 @@ export const adminAPI = {
         exportReport: (params) => api.get('/admin/attendance/v2/export', { params }),
     },
 
-    // Leave Management (NEW)
+    // Leave Management (Faculty)
     getFacultyLeaves: (params) => api.get('/admin/leave/faculty', { params }),
     approveFacultyLeave: (id, data) => api.put(`/admin/leave/${id}/approve`, data),
     rejectFacultyLeave: (id, data) => api.put(`/admin/leave/${id}/reject`, data),
     getLeaveStats: () => api.get('/admin/leave/stats'),
     getLeaveAnalytics: () => api.get('/admin/leave/analytics'),
+
+    // Leave Management (Student)
+    getStudentLeaves: (params) => api.get('/admin/leave/students', { params }),
+    approveStudentLeave: (id, data) => api.put(`/admin/leave/students/${id}/approve`, data),
+    rejectStudentLeave: (id, data) => api.put(`/admin/leave/students/${id}/reject`, data),
 
     // DOB Management
     updateUserDOB: (userId, dateOfBirth) => api.put(`/admin/users/${userId}/dob`, { dateOfBirth }),
@@ -451,6 +472,16 @@ export const feeAPI = {
         getSummary: () => api.get('/fees/student/summary'),
         getReceipts: () => api.get('/fees/student/receipts'),
     },
+};
+
+// ==================== CHATBOT API ====================
+export const chatbotAPI = {
+    // Send message to chatbot
+    sendMessage: (data) => api.post('/chat', data),
+    // Get quick suggestions based on role
+    getSuggestions: () => api.get('/chat/suggestions'),
+    // Clear conversation context
+    clearContext: () => api.post('/chat/clear'),
 };
 
 export default api;

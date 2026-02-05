@@ -12,6 +12,10 @@ dotenv.config();
 // Connect to database
 connectDB();
 
+// Register Analytics Event Handlers (for RESULT_PUBLISHED, etc.)
+const { registerEventHandlers } = require('./services/analyticsEventHandler');
+registerEventHandlers();
+
 const app = express();
 const server = http.createServer(app);
 
@@ -94,6 +98,8 @@ app.use('/api/faculty', require('./routes/facultyRoutes'));
 app.use('/api/admin', require('./routes/adminRoutes'));
 app.use('/api/birthdays', require('./routes/birthdayRoutes'));
 app.use('/api/fees', require('./routes/feeRoutes'));
+app.use('/api/chat', require('./routes/chatRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
 
 
 // Health check endpoint
@@ -116,6 +122,7 @@ app.get('/', (req, res) => {
             student: '/api/student',
             faculty: '/api/faculty',
             admin: '/api/admin',
+            chat: '/api/chat',
             health: '/api/health'
         }
     });

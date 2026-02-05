@@ -21,8 +21,10 @@ const StudentTimetable = () => {
         try {
             setLoading(true);
             const response = await studentAPI.getTimetable();
+            console.log('[StudentTimetable] API Response:', response.data);
             if (response.data.success) {
                 setTimetable(response.data.data);
+                console.log('[StudentTimetable] Loaded entries:', response.data.data.length);
             }
         } catch (error) {
             console.error('Error fetching timetable:', error);

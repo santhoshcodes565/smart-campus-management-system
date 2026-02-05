@@ -19,7 +19,9 @@ const {
     updateTimetable,
     deleteTimetable,
     publishTimetable,
+    publishClassTimetables,
     lockTimetable,
+    lockClassTimetables,
     validateTimetableConflicts,
     // Transport
     createTransport,
@@ -132,12 +134,17 @@ router.route('/faculty/:id')
 router.route('/timetable')
     .post(manageTimetable)
     .get(getAllTimetables);
+// IMPORTANT: Static routes MUST come BEFORE parameterized routes
+// Otherwise /timetable/publish-class matches /timetable/:id/publish with id="publish-class"
+router.put('/timetable/publish-class', publishClassTimetables);
+router.put('/timetable/lock-class', lockClassTimetables);
+router.post('/timetable/validate', validateTimetableConflicts);
+// Parameterized routes come AFTER static routes
 router.route('/timetable/:id')
     .put(updateTimetable)
     .delete(deleteTimetable);
 router.put('/timetable/:id/publish', publishTimetable);
 router.put('/timetable/:id/lock', lockTimetable);
-router.post('/timetable/validate', validateTimetableConflicts);
 
 // Transport management
 router.route('/transport')
@@ -210,6 +217,11 @@ router.put('/leave/:id/approve', leaveController.approveFacultyLeave);
 router.put('/leave/:id/reject', leaveController.rejectFacultyLeave);
 router.get('/leave/stats', leaveController.getAdminLeaveStats);
 router.get('/leave/analytics', leaveController.getLeaveAnalytics);
+
+// Student Leave Management (Admin)
+router.get('/leave/students', leaveController.getStudentLeavesForAdmin);
+router.put('/leave/students/:id/approve', leaveController.approveStudentLeaveByAdmin);
+router.put('/leave/students/:id/reject', leaveController.rejectStudentLeaveByAdmin);
 
 // ==================== ONLINE EXAM SYSTEM ====================
 
@@ -310,6 +322,42 @@ router.get('/faculty-attendance/analytics', facultyAttendance.getAttendanceAnaly
 router.get('/faculty-attendance/faculty/:facultyId', facultyAttendance.getFacultyAttendance);
 router.put('/faculty-attendance/:id/note', facultyAttendance.updateNote);
 router.post('/faculty-attendance/process-eod', facultyAttendance.processEndOfDay);
+
+// ==================== ACADEMIC ANALYTICS ENGINE ====================
+const academicAnalytics = require('../controllers/academicAnalyticsController');
+
+router.get('/academic-analytics/overview', academicAnalytics.getOverviewKPIs);
+router.get('/academic-analytics/department/:id', academicAnalytics.getDepartmentAnalytics);
+router.get('/academic-analytics/semester-trend', academicAnalytics.getSemesterTrend);
+router.get('/academic-analytics/toppers', academicAnalytics.getToppers);
+router.get('/academic-analytics/at-risk-students', academicAnalytics.getAtRiskStudents);
+router.get('/academic-analytics/failed-subjects', academicAnalytics.getTopFailedSubjects);
+router.get('/academic-analytics/placement-eligibility', academicAnalytics.getPlacementEligibleStudents);
+router.post('/academic-analytics/generate', academicAnalytics.triggerAnalyticsGeneration);
+
+// ==================== MARK MANAGEMENT (Admin Authority) ====================
+const markController = require('../controllers/markController');
+const { canApprove, canReject, canPublish, canLock, canOverride } = require('../middleware/resultPermissions');
+
+// View pending approvals
+router.get('/marks/pending', markController.getPendingApprovals);
+
+// Admin mark correction
+router.patch('/marks/:resultId', markController.adminEditMark);
+
+// Approval workflow
+router.post('/marks/approve/:examId', canApprove, markController.approveResults);
+router.post('/marks/reject/:examId', canReject, markController.rejectResults);
+
+// Publication and locking
+router.post('/marks/publish/:examId', canPublish, markController.publishResults);
+router.post('/marks/lock/:examId', canLock, markController.lockResults);
+
+// Admin override (locked results only)
+router.post('/marks/override/:resultId', canOverride, markController.overrideResult);
+
+// Audit trail
+router.get('/marks/audit/:resultId', markController.getAuditHistory);
 
 module.exports = router;
 

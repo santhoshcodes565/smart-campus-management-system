@@ -172,8 +172,15 @@ const ManageTimetable = () => {
         if (!selectedTimetable) return;
         setIsSubmitting(true);
         try {
-            await adminAPI.publishTimetable(selectedTimetable._id);
-            toast.success('Timetable published! Now visible to Faculty and Students.');
+            // Use bulk publish to publish ALL days for this class
+            await adminAPI.publishClassTimetables({
+                department: selectedTimetable.department,
+                year: selectedTimetable.year,
+                section: selectedTimetable.section,
+                academicYear,
+                semester
+            });
+            toast.success('All timetable entries published! Now visible to Faculty and Students.');
             fetchTimetables();
             setShowPublishModal(false);
             setSelectedTimetable(null);
@@ -195,8 +202,15 @@ const ManageTimetable = () => {
         if (!selectedTimetable) return;
         setIsSubmitting(true);
         try {
-            await adminAPI.lockTimetable(selectedTimetable._id);
-            toast.success('Timetable locked! No further modifications allowed.');
+            // Use bulk lock to lock ALL days for this class
+            await adminAPI.lockClassTimetables({
+                department: selectedTimetable.department,
+                year: selectedTimetable.year,
+                section: selectedTimetable.section,
+                academicYear,
+                semester
+            });
+            toast.success('All timetable entries locked! No further modifications allowed.');
             fetchTimetables();
             setShowLockModal(false);
             setSelectedTimetable(null);

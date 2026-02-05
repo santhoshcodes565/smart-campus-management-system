@@ -635,6 +635,86 @@ const publishTimetable = async (req, res, next) => {
     }
 };
 
+// @desc    Bulk publish all timetables for a class (all days)
+// @route   PUT /api/admin/timetable/publish-class
+// @access  Admin
+const publishClassTimetables = async (req, res, next) => {
+    try {
+        const { department, year, section, academicYear, semester } = req.body;
+
+        if (!department || !year || !section) {
+            return errorResponse(res, 400, 'Department, year, and section are required');
+        }
+
+        const result = await Timetable.updateMany(
+            {
+                department,
+                year: parseInt(year),
+                section,
+                academicYear: academicYear || '2025-26',
+                semester: semester || 1,
+                status: 'draft'
+            },
+            {
+                $set: {
+                    status: 'published',
+                    publishedAt: new Date(),
+                    lastModifiedBy: req.user._id
+                }
+            }
+        );
+
+        console.log(`[PUBLISH] Published ${result.modifiedCount} timetable entries for ${department}-${year}-${section}`);
+
+        return successResponse(res, 200, `Published ${result.modifiedCount} timetable entries`, {
+            modifiedCount: result.modifiedCount,
+            class: `${department}-${year}-${section}`
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+// @desc    Bulk lock all timetables for a class (all days)
+// @route   PUT /api/admin/timetable/lock-class
+// @access  Admin
+const lockClassTimetables = async (req, res, next) => {
+    try {
+        const { department, year, section, academicYear, semester } = req.body;
+
+        if (!department || !year || !section) {
+            return errorResponse(res, 400, 'Department, year, and section are required');
+        }
+
+        const result = await Timetable.updateMany(
+            {
+                department,
+                year: parseInt(year),
+                section,
+                academicYear: academicYear || '2025-26',
+                semester: semester || 1,
+                status: 'published'
+            },
+            {
+                $set: {
+                    status: 'locked',
+                    lockedAt: new Date(),
+                    lastModifiedBy: req.user._id
+                }
+            }
+        );
+
+        console.log(`[LOCK] Locked ${result.modifiedCount} timetable entries for ${department}-${year}-${section}`);
+
+        return successResponse(res, 200, `Locked ${result.modifiedCount} timetable entries`, {
+            modifiedCount: result.modifiedCount,
+            class: `${department}-${year}-${section}`
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
 // @desc    Lock timetable (published → locked)
 // @route   PUT /api/admin/timetable/:id/lock
 // @access  Admin
@@ -1075,7 +1155,9 @@ module.exports = {
     updateTimetable,
     deleteTimetable,
     publishTimetable,
+    publishClassTimetables,
     lockTimetable,
+    lockClassTimetables,
     validateTimetableConflicts,
     // Transport
     createTransport,

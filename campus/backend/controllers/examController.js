@@ -94,7 +94,8 @@ const deleteExam = async (req, res, next) => {
 // @access  Admin
 const publishResults = async (req, res, next) => {
     try {
-        const exam = await Exam.findById(req.params.id);
+        const exam = await Exam.findById(req.params.id)
+            .populate('subjectId', 'courseId semester');
         if (!exam) {
             return errorResponse(res, 404, 'Exam not found');
         }
@@ -103,12 +104,41 @@ const publishResults = async (req, res, next) => {
         await exam.save();
 
         // Mark all results for this exam as published
-        await Result.updateMany(
+        const updateResult = await Result.updateMany(
             { examId: req.params.id },
             { isPublished: true, publishedAt: new Date() }
         );
 
-        return successResponse(res, 200, 'Results published successfully');
+        // Get student IDs for analytics
+        const results = await Result.find({ examId: req.params.id }).select('studentId').lean();
+        const studentIds = results.map(r => r.studentId);
+
+        // Emit RESULT_PUBLISHED event for analytics generation
+        if (studentIds.length > 0) {
+            const { emitEvent, EVENTS, getCurrentAcademicYear } = require('../services/eventEmitter');
+
+            // Get department from subject's course
+            let departmentId = null;
+            if (exam.subjectId?.courseId) {
+                const Course = require('../models/Course');
+                const course = await Course.findById(exam.subjectId.courseId).select('departmentId').lean();
+                departmentId = course?.departmentId;
+            }
+
+            emitEvent(EVENTS.RESULT_PUBLISHED, {
+                examId: req.params.id,
+                departmentId,
+                courseId: exam.courseId,
+                semester: exam.semester,
+                academicYear: getCurrentAcademicYear(),
+                studentIds,
+                publishedBy: req.user._id
+            });
+        }
+
+        return successResponse(res, 200, 'Results published successfully', {
+            resultsPublished: updateResult.modifiedCount
+        });
     } catch (error) {
         next(error);
     }

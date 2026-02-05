@@ -10,7 +10,9 @@ const {
     applyLeave,
     getLeaveRequests,
     getMyEnrollment,
-    getDashboardStats
+    getDashboardStats,
+    getMyProfile,
+    updateMyProfile
 } = require('../controllers/studentController');
 const { protect } = require('../middleware/authMiddleware');
 const { authorize } = require('../middleware/roleMiddleware');
@@ -18,6 +20,10 @@ const { authorize } = require('../middleware/roleMiddleware');
 // All routes require student authentication
 router.use(protect);
 router.use(authorize('student'));
+
+// Secure profile routes (use JWT identity, not URL params)
+router.get('/me', getMyProfile);
+router.patch('/me', updateMyProfile);
 
 router.get('/profile', getProfile);
 router.get('/timetable', getTimetable);
@@ -94,6 +100,12 @@ const attendanceV2 = require('../controllers/attendanceV2Controller');
 router.get('/attendance/v2', attendanceV2.getMyAttendanceDetails);
 router.get('/attendance/v2/summary', attendanceV2.getMyAttendanceSummary);
 router.get('/attendance/v2/eligibility', attendanceV2.checkExamEligibility);
+
+// ==================== ACADEMIC PERFORMANCE & ANALYTICS ====================
+const academicAnalytics = require('../controllers/academicAnalyticsController');
+
+router.get('/performance', academicAnalytics.getMyPerformance);
+router.get('/placement-status', academicAnalytics.getPlacementStatus);
 
 module.exports = router;
 
