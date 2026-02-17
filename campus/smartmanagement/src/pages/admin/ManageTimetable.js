@@ -3,7 +3,8 @@ import { toast } from 'react-toastify';
 import { adminAPI } from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
 import Breadcrumb from '../../components/common/Breadcrumb';
-import Modal, { ConfirmModal } from '../../components/common/Modal';
+import { ConfirmModal } from '../../components/common/Modal';
+import ScrollableModal from '../../components/common/ScrollableModal';
 import { SkeletonTable } from '../../components/common/LoadingSpinner';
 import {
     FiPlus, FiEdit2, FiTrash2, FiCalendar, FiClock,
@@ -481,13 +482,21 @@ const ManageTimetable = () => {
             )}
 
             {/* Add/Edit Modal */}
-            <Modal
+            <ScrollableModal
                 isOpen={showModal}
                 onClose={handleCloseModal}
                 title={selectedEntry ? 'Edit Entry' : 'Add Entry'}
-                size="md"
+                size="lg"
+                footer={
+                    <>
+                        <button type="button" onClick={handleCloseModal} className="btn-secondary">Cancel</button>
+                        <button type="submit" form="timetable-form" className="btn-primary" disabled={isSubmitting}>
+                            {isSubmitting ? 'Saving...' : selectedEntry ? 'Update' : 'Add Entry'}
+                        </button>
+                    </>
+                }
             >
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form id="timetable-form" onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <div className="form-group">
                             <label className="label">Day *</label>
@@ -618,14 +627,8 @@ const ManageTimetable = () => {
                             </select>
                         </div>
                     </div>
-                    <div className="flex justify-end gap-3 pt-4">
-                        <button type="button" onClick={handleCloseModal} className="btn-secondary">Cancel</button>
-                        <button type="submit" className="btn-primary" disabled={isSubmitting}>
-                            {isSubmitting ? 'Saving...' : selectedEntry ? 'Update' : 'Add Entry'}
-                        </button>
-                    </div>
                 </form>
-            </Modal>
+            </ScrollableModal>
 
             {/* Delete Confirmation */}
             <ConfirmModal

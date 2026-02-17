@@ -3,7 +3,8 @@ import { toast } from 'react-toastify';
 import { adminAPI } from '../../services/api';
 import { useSocket } from '../../context/SocketContext';
 import Breadcrumb from '../../components/common/Breadcrumb';
-import Modal, { ConfirmModal } from '../../components/common/Modal';
+import { ConfirmModal } from '../../components/common/Modal';
+import ScrollableModal from '../../components/common/ScrollableModal';
 import EmptyState from '../../components/common/EmptyState';
 import { SkeletonTable } from '../../components/common/LoadingSpinner';
 import { FiPlus, FiEdit2, FiTrash2, FiSend, FiSearch, FiBell, FiUsers, FiGlobe } from 'react-icons/fi';
@@ -244,13 +245,24 @@ const ManageNotices = () => {
             )}
 
             {/* Add/Edit Modal */}
-            <Modal
+            <ScrollableModal
                 isOpen={showModal}
                 onClose={handleCloseModal}
                 title={selectedNotice ? 'Edit Notice' : 'Post New Notice'}
                 size="lg"
+                footer={
+                    <>
+                        <button type="button" onClick={handleCloseModal} className="btn-secondary">
+                            Cancel
+                        </button>
+                        <button type="submit" form="notice-form" className="btn-primary" disabled={isSubmitting}>
+                            <FiSend size={16} />
+                            {isSubmitting ? 'Posting...' : selectedNotice ? 'Update Notice' : 'Post Notice'}
+                        </button>
+                    </>
+                }
             >
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form id="notice-form" onSubmit={handleSubmit} className="space-y-4">
                     <div className="form-group">
                         <label className="label">Title *</label>
                         <input
@@ -338,17 +350,8 @@ const ManageNotices = () => {
                         </div>
                     )}
 
-                    <div className="flex justify-end gap-3 pt-4">
-                        <button type="button" onClick={handleCloseModal} className="btn-secondary">
-                            Cancel
-                        </button>
-                        <button type="submit" className="btn-primary" disabled={isSubmitting}>
-                            <FiSend size={16} />
-                            {isSubmitting ? 'Posting...' : selectedNotice ? 'Update Notice' : 'Post Notice'}
-                        </button>
-                    </div>
                 </form>
-            </Modal>
+            </ScrollableModal>
 
             <ConfirmModal
                 isOpen={showDeleteModal}

@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { adminAPI } from '../../services/api';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import Modal, { ConfirmModal } from '../../components/common/Modal';
+import ScrollableModal from '../../components/common/ScrollableModal';
 import EmptyState from '../../components/common/EmptyState';
 import Pagination from '../../components/common/Pagination';
 import { SkeletonTable } from '../../components/common/LoadingSpinner';
@@ -425,13 +426,23 @@ const ManageFaculty = () => {
             />
 
             {/* Add/Edit Modal */}
-            <Modal
+            <ScrollableModal
                 isOpen={showModal}
                 onClose={handleCloseModal}
                 title={selectedFaculty ? 'Edit Faculty' : 'Add New Faculty'}
                 size="lg"
+                footer={
+                    <>
+                        <button type="button" onClick={handleCloseModal} className="btn-secondary">
+                            Cancel
+                        </button>
+                        <button type="submit" form="faculty-form" className="btn-primary" disabled={isSubmitting}>
+                            {isSubmitting ? 'Saving...' : selectedFaculty ? 'Update Faculty' : 'Add Faculty'}
+                        </button>
+                    </>
+                }
             >
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form id="faculty-form" onSubmit={handleSubmit} className="space-y-4">
                     {/* Basic Info */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="form-group">
@@ -608,16 +619,8 @@ const ManageFaculty = () => {
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-3 pt-4">
-                        <button type="button" onClick={handleCloseModal} className="btn-secondary">
-                            Cancel
-                        </button>
-                        <button type="submit" className="btn-primary" disabled={isSubmitting}>
-                            {isSubmitting ? 'Saving...' : selectedFaculty ? 'Update Faculty' : 'Add Faculty'}
-                        </button>
-                    </div>
                 </form>
-            </Modal>
+            </ScrollableModal>
 
             <ConfirmModal
                 isOpen={showDeleteModal}

@@ -2,7 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { adminAPI } from '../../services/api';
 import Breadcrumb from '../../components/common/Breadcrumb';
-import Modal, { ConfirmModal } from '../../components/common/Modal';
+import { ConfirmModal } from '../../components/common/Modal';
+import ScrollableModal from '../../components/common/ScrollableModal';
 import EmptyState from '../../components/common/EmptyState';
 import Pagination from '../../components/common/Pagination';
 import { SkeletonTable } from '../../components/common/LoadingSpinner';
@@ -493,13 +494,28 @@ const ManageSubjects = () => {
             />
 
             {/* Add/Edit Modal */}
-            <Modal
+            <ScrollableModal
                 isOpen={showModal}
                 onClose={handleCloseModal}
                 title={selectedSubject ? 'Edit Subject' : 'Add New Subject'}
                 size="lg"
+                footer={
+                    <>
+                        <button type="button" onClick={handleCloseModal} className="btn-secondary">
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            form="subject-form"
+                            className="btn-primary"
+                            disabled={isSubmitting || !formData.departmentId || !formData.courseId}
+                        >
+                            {isSubmitting ? 'Saving...' : selectedSubject ? 'Update Subject' : 'Add Subject'}
+                        </button>
+                    </>
+                }
             >
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form id="subject-form" onSubmit={handleSubmit} className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="form-group">
                             <label className="label">Subject Name *</label>
@@ -673,27 +689,33 @@ const ManageSubjects = () => {
                         />
                     </div>
 
-                    <div className="flex justify-end gap-3 pt-4">
-                        <button type="button" onClick={handleCloseModal} className="btn-secondary">
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            className="btn-primary"
-                            disabled={isSubmitting || !formData.departmentId || !formData.courseId}
-                        >
-                            {isSubmitting ? 'Saving...' : selectedSubject ? 'Update Subject' : 'Add Subject'}
-                        </button>
-                    </div>
                 </form>
-            </Modal>
+            </ScrollableModal>
 
             {/* Assign Faculty Modal */}
-            <Modal
+            <ScrollableModal
                 isOpen={showAssignModal}
                 onClose={() => { setShowAssignModal(false); setSelectedFacultyId(''); }}
                 title={`Assign Faculty to ${selectedSubject?.name}`}
                 size="sm"
+                footer={
+                    <>
+                        <button
+                            type="button"
+                            onClick={() => { setShowAssignModal(false); setSelectedFacultyId(''); }}
+                            className="btn-secondary"
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            onClick={handleAssignFaculty}
+                            className="btn-primary"
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? 'Assigning...' : 'Assign Faculty'}
+                        </button>
+                    </>
+                }
             >
                 <div className="space-y-4">
                     <div className="form-group">
@@ -711,24 +733,8 @@ const ManageSubjects = () => {
                             ))}
                         </select>
                     </div>
-                    <div className="flex justify-end gap-3 pt-4">
-                        <button
-                            type="button"
-                            onClick={() => { setShowAssignModal(false); setSelectedFacultyId(''); }}
-                            className="btn-secondary"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleAssignFaculty}
-                            className="btn-primary"
-                            disabled={isSubmitting}
-                        >
-                            {isSubmitting ? 'Assigning...' : 'Assign Faculty'}
-                        </button>
-                    </div>
                 </div>
-            </Modal>
+            </ScrollableModal>
 
             {/* Delete Confirmation Modal */}
             <ConfirmModal

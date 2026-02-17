@@ -1,5 +1,6 @@
 const asyncHandler = require('express-async-handler');
-const ChatbotService = require('../services/ChatbotService');
+// Use V2 with OpenAI integration (fallback to keyword-based if OpenAI unavailable)
+const ChatbotService = require('../services/ChatbotServiceV2');
 
 /**
  * @desc    Process chat message
@@ -51,11 +52,11 @@ const getSuggestions = asyncHandler(async (req, res) => {
     let suggestions;
     if (userRole === 'student') {
         suggestions = [
-            { text: 'Today Assignment', icon: '📚' },
-            { text: 'Today Timetable', icon: '📅' },
             { text: 'My Attendance', icon: '📊' },
-            { text: 'Announcements', icon: '📢' },
-            { text: 'Exam Dates', icon: '📝' },
+            { text: 'My Marks', icon: '📝' },
+            { text: 'Today Timetable', icon: '📅' },
+            { text: 'Pending Fees', icon: '💰' },
+            { text: 'Exam Dates', icon: '📋' },
             { text: 'Help', icon: '❓' }
         ];
     } else if (userRole === 'faculty') {

@@ -3,6 +3,7 @@ import { toast } from 'react-toastify';
 import { adminAPI } from '../../services/api';
 import Breadcrumb from '../../components/common/Breadcrumb';
 import Modal, { ConfirmModal } from '../../components/common/Modal';
+import ScrollableModal from '../../components/common/ScrollableModal';
 import EmptyState from '../../components/common/EmptyState';
 import Pagination from '../../components/common/Pagination';
 import { SkeletonTable } from '../../components/common/LoadingSpinner';
@@ -463,13 +464,28 @@ const ManageStudents = () => {
             />
 
             {/* Add/Edit Modal */}
-            <Modal
+            <ScrollableModal
                 isOpen={showModal}
                 onClose={handleCloseModal}
                 title={selectedStudent ? 'Edit Student' : 'Add New Student'}
                 size="lg"
+                footer={
+                    <>
+                        <button type="button" onClick={handleCloseModal} className="btn-secondary">
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            form="student-form"
+                            className="btn-primary"
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? 'Saving...' : selectedStudent ? 'Update Student' : 'Add Student'}
+                        </button>
+                    </>
+                }
             >
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form id="student-form" onSubmit={handleSubmit} className="space-y-4">
                     {/* Basic Info */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="form-group">
@@ -716,16 +732,8 @@ const ManageStudents = () => {
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-3 pt-4">
-                        <button type="button" onClick={handleCloseModal} className="btn-secondary">
-                            Cancel
-                        </button>
-                        <button type="submit" className="btn-primary" disabled={isSubmitting}>
-                            {isSubmitting ? 'Saving...' : selectedStudent ? 'Update Student' : 'Add Student'}
-                        </button>
-                    </div>
                 </form>
-            </Modal>
+            </ScrollableModal>
 
             {/* Password Reset Modal */}
             <Modal
