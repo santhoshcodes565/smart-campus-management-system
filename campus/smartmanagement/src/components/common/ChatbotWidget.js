@@ -31,12 +31,18 @@ const ChatbotWidget = () => {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [isLoading, setIsLoading] = useState(false);
-    const [suggestions, setSuggestions] = useState([
-        'Today Assignment',
-        'Today Timetable',
-        'My Attendance',
-        'Announcements'
-    ]);
+    const [suggestions, setSuggestions] = useState([]);
+
+    // Set role-based default suggestions
+    useEffect(() => {
+        if (user?.role === 'admin') {
+            setSuggestions(['Student Stats', 'Department Analytics', 'Announcements', 'Help']);
+        } else if (user?.role === 'faculty') {
+            setSuggestions(['Today Timetable', 'Announcements', 'Department Info', 'Help']);
+        } else {
+            setSuggestions(['Today Assignment', 'Today Timetable', 'My Attendance', 'Announcements']);
+        }
+    }, [user?.role]);
     const messagesEndRef = useRef(null);
 
     // Scroll to bottom when messages change

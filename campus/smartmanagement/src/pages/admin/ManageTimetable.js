@@ -24,6 +24,7 @@ const ManageTimetable = () => {
     const [selectedTimetable, setSelectedTimetable] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [facultyList, setFacultyList] = useState([]);
+    const [subjectList, setSubjectList] = useState([]);
     const [statusFilter, setStatusFilter] = useState('all');
     const { emitEvent } = useSocket();
 
@@ -47,7 +48,7 @@ const ManageTimetable = () => {
     const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const periods = [1, 2, 3, 4, 5, 6, 7, 8];
     const departments = ['CSE', 'ECE', 'EEE', 'MECH', 'CIVIL', 'IT'];
-    const subjects = ['Data Structures', 'Algorithms', 'Database Systems', 'Operating Systems', 'Computer Networks', 'Machine Learning', 'Web Development', 'Mathematics', 'Physics'];
+
     const academicYears = ['2024-25', '2025-26', '2026-27'];
 
     useEffect(() => {
@@ -62,9 +63,10 @@ const ManageTimetable = () => {
             if (academicYear) params.academicYear = academicYear;
             if (semester) params.semester = semester;
 
-            const [ttRes, facRes] = await Promise.all([
+            const [ttRes, facRes, subRes] = await Promise.all([
                 adminAPI.getTimetables(params),
-                adminAPI.getFaculty()
+                adminAPI.getFaculty(),
+                adminAPI.getSubjects({ status: 'active' })
             ]);
 
             if (ttRes.data.success) {
@@ -72,6 +74,9 @@ const ManageTimetable = () => {
             }
             if (facRes.data.success) {
                 setFacultyList(facRes.data.data);
+            }
+            if (subRes.data.success) {
+                setSubjectList(subRes.data.data);
             }
         } catch (error) {
             console.error('Error fetching data:', error);
@@ -278,7 +283,7 @@ const ManageTimetable = () => {
             'bg-purple-100 text-purple-700 border-purple-200',
             'bg-blue-100 text-blue-700 border-blue-200',
         ];
-        const index = subjects.indexOf(subject) % colors.length;
+        const index = subjectList.findIndex(s => (s.name || s) === subject) % colors.length;
         return colors[index >= 0 ? index : 0];
     };
 
@@ -536,9 +541,15 @@ const ManageTimetable = () => {
                                 required
                             >
                                 <option value="">Select Subject</option>
-                                {subjects.map(sub => (
-                                    <option key={sub} value={sub}>{sub}</option>
-                                ))}
+                                {subjectList.length === 0 ? (
+                                    <option disabled>No subjects found — add subjects first</option>
+                                ) : (
+                                    subjectList.map(sub => (
+                                        <option key={sub._id || sub} value={sub.name || sub}>
+                                            {sub.name || sub}
+                                        </option>
+                                    ))
+                                )}
                             </select>
                         </div>
                         <div className="form-group">

@@ -103,6 +103,7 @@ const INTENT_PERMISSION_MAP = {
     'performance_analytics': 'analytics',
     'student_count': 'analytics',
     'faculty_count': 'analytics',
+    'department_list': 'department_info',
     'low_attendance_students': 'low_attendance',
     'students_below_attendance': 'low_attendance'
 };

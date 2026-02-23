@@ -177,7 +177,8 @@ const INTENT_PATTERNS = {
         patterns: [
             'how many students', 'total students', 'student count',
             'number of students', 'students enrolled', 'enrolled students',
-            'registered students', 'students registered'
+            'registered students', 'students registered', 'student stats',
+            'student statistics'
         ],
         priority: 1,
         category: 'analytics',
@@ -191,6 +192,16 @@ const INTENT_PATTERNS = {
         ],
         priority: 1,
         category: 'analytics',
+        requiredRole: ['admin']
+    },
+    department_list: {
+        patterns: [
+            'department list', 'all departments', 'list departments',
+            'show departments', 'departments list', 'how many departments',
+            'total departments'
+        ],
+        priority: 2,
+        category: 'department_info',
         requiredRole: ['admin']
     },
 

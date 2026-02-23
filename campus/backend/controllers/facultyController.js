@@ -301,17 +301,28 @@ const getTimetable = async (req, res, next) => {
             return errorResponse(res, 404, 'Faculty not found');
         }
 
-        // Only show published or locked timetables where this faculty is assigned
+        // Strategy 1: timetable slots assigned directly to this faculty
+        // Strategy 2: all published timetables in their department (fallback)
+        // We use an OR query so faculty can see their full dept schedule
         const timetables = await Timetable.find({
-            'slots.faculty': faculty._id,
-            status: { $in: ['published', 'locked'] }  // Lifecycle filter
+            $and: [
+                { status: { $in: ['published', 'locked'] } },
+                {
+                    $or: [
+                        { 'slots.faculty': faculty._id },          // slots assigned to them
+                        { department: req.user.department }        // fallback: same dept
+                    ]
+                }
+            ]
         })
+            .populate('slots.faculty', 'userId')
             .populate('slots.subjectId', 'name code')
             .populate('departmentId', 'name')
             .populate('courseId', 'name')
             .sort({ day: 1 });
 
         // Transform to faculty-friendly format
+        // isMySlot=true flags the slots assigned specifically to this faculty
         const formattedTimetables = timetables.map(tt => ({
             _id: tt._id,
             day: tt.day,
@@ -319,10 +330,10 @@ const getTimetable = async (req, res, next) => {
             year: tt.year,
             section: tt.section,
             status: tt.status,
-            slots: tt.slots.filter(slot =>
-                slot.faculty && slot.faculty.toString() === faculty._id.toString()
-            ).map(slot => ({
+            slots: tt.slots.map(slot => ({
                 ...slot.toObject(),
+                isMySlot: slot.faculty &&
+                    slot.faculty.toString() === faculty._id.toString(),
                 class: `${tt.department}-${tt.year}-${tt.section}`
             }))
         }));

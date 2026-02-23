@@ -644,6 +644,95 @@ const getDepartmentAnalytics = async () => {
 };
 
 /**
+ * Get list of all active departments
+ */
+const getDepartmentList = async () => {
+    try {
+        const departments = await Department.find({ status: 'active' })
+            .select('name code hodName description')
+            .sort({ name: 1 })
+            .lean();
+
+        return {
+            departments: departments.map(d => ({
+                name: d.name,
+                code: d.code,
+                hod: d.hodName || null
+            }))
+        };
+    } catch (error) {
+        console.error('[Retrieval] getDepartmentList error:', error.message);
+        return { error: 'Failed to retrieve department list.' };
+    }
+};
+
+/**
+ * Get department info for a specific student/faculty
+ */
+const getDepartmentInfoForUser = async (departmentId) => {
+    try {
+        if (!departmentId) {
+            // Return all departments for admin
+            return await getDepartmentList();
+        }
+
+        const dept = await Department.findById(departmentId)
+            .select('name code hodName description')
+            .lean();
+
+        if (!dept) {
+            return { error: 'Department not found.' };
+        }
+
+        const totalStudents = await Student.countDocuments({ departmentId });
+        const totalFaculty = await Faculty.countDocuments({ departmentId });
+
+        return {
+            departmentInfo: {
+                name: dept.name,
+                code: dept.code,
+                hod: dept.hodName || null,
+                totalStudents,
+                totalFaculty
+            }
+        };
+    } catch (error) {
+        console.error('[Retrieval] getDepartmentInfoForUser error:', error.message);
+        return { error: 'Failed to retrieve department info.' };
+    }
+};
+
+/**
+ * Get faculty contacts (for a department or all)
+ */
+const getFacultyContacts = async (departmentId) => {
+    try {
+        const query = departmentId ? { departmentId } : {};
+        const faculties = await Faculty.find(query)
+            .populate('userId', 'name email phone')
+            .populate('departmentId', 'name')
+            .select('designation employeeId userId departmentId')
+            .sort({ 'userId.name': 1 })
+            .limit(20)
+            .lean();
+
+        return {
+            facultyContacts: faculties.map(f => ({
+                name: f.userId?.name || 'N/A',
+                email: f.userId?.email || null,
+                phone: f.userId?.phone || null,
+                designation: f.designation || 'Faculty',
+                department: f.departmentId?.name || 'N/A',
+                employeeId: f.employeeId
+            }))
+        };
+    } catch (error) {
+        console.error('[Retrieval] getFacultyContacts error:', error.message);
+        return { error: 'Failed to retrieve faculty contacts.' };
+    }
+};
+
+/**
  * Main data retrieval function based on intent
  */
 const getData = async (intent, userId, userRole, entities = {}) => {
@@ -779,6 +868,49 @@ const getData = async (intent, userId, userRole, entities = {}) => {
                 }
                 break;
 
+            case 'department_info':
+                if (userRole === 'admin') {
+                    const deptInfo = await getDepartmentList();
+                    data = { ...data, ...deptInfo };
+                } else if (studentId) {
+                    const student = await Student.findById(studentId).lean();
+                    if (student?.departmentId) {
+                        const deptInfo = await getDepartmentInfoForUser(student.departmentId);
+                        data = { ...data, ...deptInfo };
+                    }
+                } else if (facultyId) {
+                    const faculty = await Faculty.findById(facultyId).lean();
+                    if (faculty?.departmentId) {
+                        const deptInfo = await getDepartmentInfoForUser(faculty.departmentId);
+                        data = { ...data, ...deptInfo };
+                    }
+                }
+                break;
+
+            case 'department_list':
+                const deptList = await getDepartmentList();
+                data = { ...data, ...deptList };
+                break;
+
+            case 'faculty_contact':
+                if (userRole === 'admin') {
+                    const contacts = await getFacultyContacts();
+                    data = { ...data, ...contacts };
+                } else if (studentId) {
+                    const student = await Student.findById(studentId).lean();
+                    if (student?.departmentId) {
+                        const contacts = await getFacultyContacts(student.departmentId);
+                        data = { ...data, ...contacts };
+                    }
+                } else if (facultyId) {
+                    const faculty = await Faculty.findById(facultyId).lean();
+                    if (faculty?.departmentId) {
+                        const contacts = await getFacultyContacts(faculty.departmentId);
+                        data = { ...data, ...contacts };
+                    }
+                }
+                break;
+
             default:
                 // No matching intent — flag as unhandled (not a system error)
                 data._noMatchingIntent = true;
@@ -806,5 +938,8 @@ module.exports = {
     getFacultyTimetable,
     getLowAttendanceStudents,
     getDepartmentAnalytics,
+    getDepartmentList,
+    getDepartmentInfoForUser,
+    getFacultyContacts,
     getData
 };

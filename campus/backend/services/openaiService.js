@@ -278,61 +278,228 @@ const formatFallbackResponse = (campusData) => {
 
     // If no intent matched, this is not a system error — just unrecognized query
     if (campusData._noMatchingIntent) {
-        return 'I could not find that information in the system.';
+        return 'I didn\'t understand that query. Try asking about attendance, timetable, assignments, marks, fees, or announcements.';
     }
 
     let response = '';
 
-    // Format based on available data
+    // ==================== ATTENDANCE ====================
     if (campusData.attendance && Array.isArray(campusData.attendance)) {
+        if (campusData.attendance.length === 0) {
+            return campusData.error || 'No attendance records found yet.';
+        }
         response = '📊 **Your Attendance Summary:**\n\n';
         campusData.attendance.forEach(a => {
             const emoji = a.percentage >= 75 ? '✅' : a.percentage >= 60 ? '⚠️' : '❌';
             response += `${emoji} **${a.subject}**: ${a.percentage}% (${a.present}/${a.total})\n`;
         });
+        if (campusData.attendanceSummary) {
+            response += `\n📈 **Overall**: ${campusData.attendanceSummary.overall}% (${campusData.attendanceSummary.totalPresent}/${campusData.attendanceSummary.totalClasses} classes)`;
+            if (campusData.attendanceSummary.belowThreshold) {
+                response += '\n\n⚠️ *Your attendance is below 75%. Please attend classes regularly.*';
+            }
+        }
         return response;
     }
 
+    // ==================== MARKS ====================
     if (campusData.marks && Array.isArray(campusData.marks)) {
+        if (campusData.marks.length === 0) {
+            return campusData.error || 'No published marks found yet.';
+        }
         response = '📚 **Your Marks:**\n\n';
         campusData.marks.forEach(m => {
-            response += `• **${m.subject}**: ${m.totalMarks}/100 (Grade: ${m.grade})\n`;
+            if (m.grade) {
+                response += `• **${m.subject}**: ${m.totalMarks || 'N/A'} (Grade: ${m.grade})\n`;
+            } else {
+                response += `• **${m.subject}**: ${m.obtained}/${m.maxMarks} (${m.percentage}%)\n`;
+            }
         });
         return response;
     }
 
-    if (campusData.timetable && campusData.timetable.slots) {
-        response = `📅 **Timetable (${campusData.timetable.day || 'Today'}):**\n\n`;
-        campusData.timetable.slots.forEach(slot => {
-            response += `• **${slot.startTime}-${slot.endTime}**: ${slot.subject}`;
-            if (slot.room) response += ` (${slot.room})`;
-            response += '\n';
-        });
-        return response;
+    // ==================== TIMETABLE ====================
+    if (campusData.timetable) {
+        if (campusData.timetable.message && (!campusData.timetable.slots || campusData.timetable.slots.length === 0)) {
+            return `📅 ${campusData.timetable.message}`;
+        }
+        if (campusData.timetable.slots && campusData.timetable.slots.length > 0) {
+            response = `📅 **Timetable (${campusData.timetable.day || 'Today'}):**\n\n`;
+            campusData.timetable.slots.forEach(slot => {
+                const type = slot.type === 'lab' ? '🔬' : slot.type === 'tutorial' ? '📝' : '📖';
+                response += `${type} **${slot.startTime}-${slot.endTime}**: ${slot.subject}`;
+                if (slot.room) response += ` (${slot.room})`;
+                if (slot.class) response += ` — ${slot.class}`;
+                response += '\n';
+            });
+            return response;
+        }
+        return `📅 No timetable found for ${campusData.timetable.day || 'today'}.`;
     }
 
+    // ==================== FEES ====================
     if (campusData.fees && Array.isArray(campusData.fees)) {
+        if (campusData.fees.length === 0) {
+            return campusData.error || 'No fee records found.';
+        }
         response = '💰 **Your Fee Status:**\n\n';
         campusData.fees.forEach(f => {
             const emoji = f.status === 'paid' ? '✅' : f.status === 'overdue' ? '❌' : '⏳';
             response += `${emoji} **${f.feeType}**: ₹${f.amount} (${f.status})\n`;
         });
+        if (campusData.feeSummary) {
+            response += `\n💳 **Pending**: ₹${campusData.feeSummary.totalPending} (${campusData.feeSummary.pendingCount} items)`;
+            if (campusData.feeSummary.hasOverdue) {
+                response += '\n❌ *You have overdue fees. Please pay immediately.*';
+            }
+        }
         return response;
     }
 
-    // Count intents
-    if (campusData.studentCount) {
-        return `Total students enrolled: ${campusData.studentCount.total}.`;
-    }
-    if (campusData.facultyCount) {
-        return `Total faculty members: ${campusData.facultyCount.total}.`;
+    // ==================== ANNOUNCEMENTS ====================
+    if (campusData.announcements && Array.isArray(campusData.announcements)) {
+        if (campusData.announcements.length === 0) {
+            return campusData.message || 'No recent announcements. Check back later!';
+        }
+        response = `📢 **Recent Announcements (${campusData.announcements.length}):**\n\n`;
+        campusData.announcements.forEach(n => {
+            const priority = n.priority === 'urgent' || n.priority === 'high' ? '🔴' :
+                n.priority === 'medium' ? '🟡' : '🟢';
+            response += `${priority} **${n.title}**\n`;
+            if (n.content) response += `   ${n.content}\n`;
+            if (n.date) {
+                const date = new Date(n.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+                response += `   📅 ${date}\n`;
+            }
+            response += '\n';
+        });
+        return response;
     }
 
+    // ==================== EXAMS ====================
+    if (campusData.exams && Array.isArray(campusData.exams)) {
+        if (campusData.exams.length === 0) {
+            return campusData.message || 'No upcoming exams scheduled.';
+        }
+        response = `📋 **Upcoming Exams (${campusData.exams.length}):**\n\n`;
+        campusData.exams.forEach(e => {
+            const date = new Date(e.date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+            response += `• **${e.subject}** — ${e.examType}\n`;
+            response += `  📅 ${date}`;
+            if (e.time) response += ` at ${e.time}`;
+            if (e.maxMarks) response += ` (Max: ${e.maxMarks})`;
+            response += '\n';
+        });
+        return response;
+    }
+
+    // ==================== ASSIGNMENTS ====================
+    if (campusData.assignments && Array.isArray(campusData.assignments)) {
+        if (campusData.assignments.length === 0) {
+            return campusData.message || 'No assignments found.';
+        }
+        response = `📚 **Assignments (${campusData.assignments.length}):**\n\n`;
+        campusData.assignments.forEach(a => {
+            const dueDate = new Date(a.dueDate).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+            response += `• **${a.subject}** — ${a.title}\n`;
+            response += `  Due: ${dueDate}${a.priority === 'high' ? ' ⚠️ High Priority' : ''}\n`;
+        });
+        return response;
+    }
+
+    // ==================== ANALYTICS (Admin) ====================
+    if (campusData.analytics) {
+        const a = campusData.analytics;
+        response = '📊 **Campus Analytics:**\n\n';
+        if (a.totalStudents !== undefined) response += `👥 **Total Students**: ${a.totalStudents}\n`;
+        if (a.totalFaculty !== undefined) response += `👨‍🏫 **Total Faculty**: ${a.totalFaculty}\n`;
+        if (a.totalDepartments !== undefined) response += `🏛️ **Total Departments**: ${a.totalDepartments}\n`;
+        if (a.feeStats) {
+            response += '\n💰 **Fee Collection:**\n';
+            Object.entries(a.feeStats).forEach(([status, stat]) => {
+                response += `  • ${status}: ${stat.count} records (₹${stat.total})\n`;
+            });
+        }
+        return response;
+    }
+
+    // ==================== COUNTS ====================
+    if (campusData.studentCount) {
+        return `👥 Total students enrolled: **${campusData.studentCount.total}**.`;
+    }
+    if (campusData.facultyCount) {
+        return `👨‍🏫 Total faculty members: **${campusData.facultyCount.total}**.`;
+    }
+
+    // ==================== DEPARTMENTS ====================
+    if (campusData.departments && Array.isArray(campusData.departments)) {
+        if (campusData.departments.length === 0) {
+            return 'No departments found.';
+        }
+        response = `🏛️ **Departments (${campusData.departments.length}):**\n\n`;
+        campusData.departments.forEach(d => {
+            response += `• **${d.name}** (${d.code})`;
+            if (d.hod) response += ` — HOD: ${d.hod}`;
+            response += '\n';
+        });
+        return response;
+    }
+
+    // ==================== DEPARTMENT INFO (single) ====================
+    if (campusData.departmentInfo) {
+        const d = campusData.departmentInfo;
+        response = '🏛️ **Department Information:**\n\n';
+        response += `• **Name**: ${d.name}\n`;
+        if (d.code) response += `• **Code**: ${d.code}\n`;
+        if (d.hod) response += `• **HOD**: ${d.hod}\n`;
+        if (d.totalStudents !== undefined) response += `• **Students**: ${d.totalStudents}\n`;
+        if (d.totalFaculty !== undefined) response += `• **Faculty**: ${d.totalFaculty}\n`;
+        return response;
+    }
+
+    // ==================== FACULTY CONTACTS ====================
+    if (campusData.facultyContacts && Array.isArray(campusData.facultyContacts)) {
+        if (campusData.facultyContacts.length === 0) {
+            return 'No faculty contacts found.';
+        }
+        response = `👨‍🏫 **Faculty Contacts (${campusData.facultyContacts.length}):**\n\n`;
+        campusData.facultyContacts.forEach(f => {
+            response += `• **${f.name}** — ${f.designation || 'Faculty'}`;
+            if (f.department) response += ` (${f.department})`;
+            if (f.email) response += `\n  📧 ${f.email}`;
+            if (f.phone) response += `\n  📞 ${f.phone}`;
+            response += '\n';
+        });
+        return response;
+    }
+
+    // ==================== LOW ATTENDANCE STUDENTS ====================
+    if (campusData.lowAttendanceStudents && Array.isArray(campusData.lowAttendanceStudents)) {
+        if (campusData.lowAttendanceStudents.length === 0) {
+            return `✅ No students below ${campusData.threshold || 75}% attendance threshold.`;
+        }
+        response = `⚠️ **Students Below ${campusData.threshold || 75}% Attendance (${campusData.lowAttendanceStudents.length}):**\n\n`;
+        campusData.lowAttendanceStudents.forEach(s => {
+            response += `• **${s.name}** (${s.rollNo}) — ${s.attendance}%\n`;
+        });
+        return response;
+    }
+
+    // ==================== ERROR / MESSAGE ====================
     if (campusData.error) {
         return campusData.error;
     }
+    if (campusData.message) {
+        return campusData.message;
+    }
 
-    return 'I could not find that information in the system.';
+    // If we have studentInfo or facultyInfo but no specific data, that means the query was processed
+    // but no specific data category was returned — give helpful message
+    if (campusData.studentInfo || campusData.facultyInfo) {
+        return 'No data available for this query. Try asking about attendance, timetable, assignments, marks, fees, or announcements.';
+    }
+
+    return 'No data available yet. Try asking about attendance, timetable, assignments, marks, or announcements.';
 };
 
 module.exports = {

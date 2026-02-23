@@ -72,6 +72,16 @@ class ChatbotServiceV2 {
                 };
             }
 
+            // Handle unrecognized/general intent — don't fall through to data retrieval
+            if (intent === 'general' || intent === 'unknown') {
+                return {
+                    success: true,
+                    intent: intent,
+                    response: 'I didn\'t understand that query. Try asking about attendance, timetable, assignments, marks, fees, or announcements.',
+                    suggestions: this.getDefaultSuggestions(userRole)
+                };
+            }
+
             // ==================== STEP 3: AUTHORIZATION CHECK ====================
             // Check permissions BEFORE data retrieval
             const authResult = authorizationService.authorize(userRole, intent, {

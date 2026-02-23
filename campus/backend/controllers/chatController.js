@@ -68,9 +68,9 @@ const getSuggestions = asyncHandler(async (req, res) => {
         ];
     } else {
         suggestions = [
+            { text: 'Student Stats', icon: '👥' },
+            { text: 'Department Analytics', icon: '📊' },
             { text: 'Announcements', icon: '📢' },
-            { text: 'Department Info', icon: '🏛️' },
-            { text: 'Faculty Contact', icon: '👨‍🏫' },
             { text: 'Help', icon: '❓' }
         ];
     }
