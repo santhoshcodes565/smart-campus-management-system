@@ -431,14 +431,15 @@ const deleteFaculty = async (req, res, next) => {
 // ==================== TIMETABLE MANAGEMENT (ENHANCED) ====================
 
 // Helper: Check for conflicts
-const checkTimetableConflicts = async (day, slots, excludeId = null, academicYear, semester) => {
+const checkTimetableConflicts = async (day, slots, excludeId = null, academicYear, semester, targetDepartment, targetYear, targetSection) => {
     const conflicts = [];
 
     for (const slot of slots) {
         if (!slot.faculty || !slot.startTime) continue;
 
-        // Build query for conflict check
-        const query = {
+        // Check faculty double-booking — only hard-block if conflict is with a
+        // PUBLISHED or LOCKED timetable of a DIFFERENT class
+        const facultyConflictQuery = {
             day,
             academicYear: academicYear || '2025-26',
             semester: semester || 1,
@@ -448,16 +449,24 @@ const checkTimetableConflicts = async (day, slots, excludeId = null, academicYea
         };
 
         if (excludeId) {
-            query._id = { $ne: excludeId };
+            facultyConflictQuery._id = { $ne: excludeId };
         }
 
-        // Check faculty double-booking
-        const facultyConflict = await Timetable.findOne(query);
+        // Exclude the same class (same dept/year/section) from the conflict check
+        if (targetDepartment && targetYear && targetSection) {
+            facultyConflictQuery.$or = [
+                { department: { $ne: targetDepartment } },
+                { year: { $ne: parseInt(targetYear) } },
+                { section: { $ne: targetSection } }
+            ];
+        }
+
+        const facultyConflict = await Timetable.findOne(facultyConflictQuery);
         if (facultyConflict) {
             conflicts.push({
                 type: 'FACULTY_DOUBLE_BOOKING',
                 severity: 'error',
-                message: `Faculty already assigned to another class at ${slot.startTime} on ${day}`,
+                message: `Faculty already assigned to another published class at ${slot.startTime} on ${day}`,
                 conflictWith: {
                     department: facultyConflict.department,
                     year: facultyConflict.year,
@@ -466,7 +475,40 @@ const checkTimetableConflicts = async (day, slots, excludeId = null, academicYea
             });
         }
 
-        // Check room clash (only if room is specified)
+        // Also check drafts — report as warning only
+        const facultyDraftConflictQuery = {
+            day,
+            academicYear: academicYear || '2025-26',
+            semester: semester || 1,
+            status: 'draft',
+            'slots.faculty': slot.faculty,
+            'slots.startTime': slot.startTime
+        };
+        if (excludeId) {
+            facultyDraftConflictQuery._id = { $ne: excludeId };
+        }
+        if (targetDepartment && targetYear && targetSection) {
+            facultyDraftConflictQuery.$or = [
+                { department: { $ne: targetDepartment } },
+                { year: { $ne: parseInt(targetYear) } },
+                { section: { $ne: targetSection } }
+            ];
+        }
+        const facultyDraftConflict = await Timetable.findOne(facultyDraftConflictQuery);
+        if (facultyDraftConflict) {
+            conflicts.push({
+                type: 'FACULTY_DRAFT_CONFLICT',
+                severity: 'warning',
+                message: `Faculty is also scheduled in a draft timetable at ${slot.startTime} on ${day} for ${facultyDraftConflict.department}-${facultyDraftConflict.year}-${facultyDraftConflict.section}`,
+                conflictWith: {
+                    department: facultyDraftConflict.department,
+                    year: facultyDraftConflict.year,
+                    section: facultyDraftConflict.section
+                }
+            });
+        }
+
+        // Check room clash (only if room is specified) — always a warning
         if (slot.room && slot.room.trim() !== '') {
             const roomQuery = {
                 day,
@@ -510,7 +552,7 @@ const createTimetable = async (req, res, next) => {
         } = req.body;
 
         // Check for conflicts before save
-        const conflicts = await checkTimetableConflicts(day, slots || [], null, academicYear, semester);
+        const conflicts = await checkTimetableConflicts(day, slots || [], null, academicYear, semester, department, year, section);
 
         // Block on hard errors (faculty double-booking)
         const hardErrors = conflicts.filter(c => c.severity === 'error');
@@ -574,7 +616,10 @@ const updateTimetable = async (req, res, next) => {
                 slots,
                 timetable._id,
                 timetable.academicYear,
-                timetable.semester
+                timetable.semester,
+                timetable.department,
+                timetable.year,
+                timetable.section
             );
 
             const hardErrors = conflicts.filter(c => c.severity === 'error');
@@ -792,7 +837,10 @@ const manageTimetable = async (req, res, next) => {
             slots || [],
             existingTimetable?._id,
             academicYear,
-            semester
+            semester,
+            department,
+            year,
+            section
         );
 
         const hardErrors = conflicts.filter(c => c.severity === 'error');

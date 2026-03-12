@@ -485,7 +485,7 @@ const ManageStudents = () => {
                     </>
                 }
             >
-                <form id="student-form" onSubmit={handleSubmit} className="space-y-4">
+                <form id="student-form" onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
                     {/* Basic Info */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="form-group">
@@ -497,6 +497,7 @@ const ManageStudents = () => {
                                 onChange={handleChange}
                                 className="input"
                                 required
+                                autoComplete="name"
                             />
                         </div>
                         <div className="form-group">
@@ -508,6 +509,7 @@ const ManageStudents = () => {
                                 onChange={handleChange}
                                 className="input"
                                 required
+                                autoComplete="new-password"
                             />
                         </div>
                         {!selectedStudent && (
@@ -522,6 +524,7 @@ const ManageStudents = () => {
                                         className="input"
                                         required={!selectedStudent}
                                         minLength={6}
+                                        autoComplete="new-password"
                                     />
                                 </div>
                                 <div className="form-group">
@@ -546,6 +549,7 @@ const ManageStudents = () => {
                                 value={formData.phone}
                                 onChange={handleChange}
                                 className="input"
+                                autoComplete="off"
                             />
                         </div>
                         <div className="form-group">

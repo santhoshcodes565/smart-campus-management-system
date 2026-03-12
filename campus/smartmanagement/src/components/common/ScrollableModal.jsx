@@ -29,6 +29,7 @@ const ScrollableModal = memo(({
 }) => {
     const modalRef = useRef(null);
     const contentRef = useRef(null);
+    const hasFocused = useRef(false);
 
     // Size classes mapping
     const sizeClasses = {
@@ -71,17 +72,20 @@ const ScrollableModal = memo(({
             // Add ESC key listener
             document.addEventListener('keydown', handleKeyDown);
 
-            // Auto-focus first focusable element
-            setTimeout(() => {
-                if (contentRef.current) {
-                    const focusableElements = contentRef.current.querySelectorAll(
-                        'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-                    );
-                    if (focusableElements.length > 0) {
-                        focusableElements[0].focus();
+            // Auto-focus first focusable element ONLY ONCE on open (not on every re-render)
+            if (!hasFocused.current) {
+                hasFocused.current = true;
+                setTimeout(() => {
+                    if (contentRef.current) {
+                        const focusableElements = contentRef.current.querySelectorAll(
+                            'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+                        );
+                        if (focusableElements.length > 0) {
+                            focusableElements[0].focus();
+                        }
                     }
-                }
-            }, 100);
+                }, 100);
+            }
 
             // Cleanup function
             return () => {
@@ -89,6 +93,9 @@ const ScrollableModal = memo(({
                 document.body.style.paddingRight = originalPaddingRight;
                 document.removeEventListener('keydown', handleKeyDown);
             };
+        } else {
+            // Reset focus flag when modal closes so next open works correctly
+            hasFocused.current = false;
         }
     }, [isOpen, handleKeyDown]);
 
